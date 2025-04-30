@@ -1,4 +1,3 @@
-// src/reservations/reservations.controller.ts
 import { Controller, Get, Post, Body, Param, Delete, Put, Request } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';

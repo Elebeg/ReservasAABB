@@ -1,12 +1,13 @@
 import { DateTime } from 'luxon';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { Reservation } from './reservation.entity';
 import { Court } from '../courts/court.entity';
 import { User } from '../users/user.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ReservationsService {
@@ -139,5 +140,14 @@ export class ReservationsService {
       relations: ['court', 'user'],
       order: { startTime: 'ASC' },
     });
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async removePastReservations(): Promise<void> {
+    const now = new Date();
+    await this.reservationRepo.delete({
+      startTime: LessThan(now),
+    });
+    console.log('[CronJob] Reservas antigas removidas com sucesso');
   }
 }
