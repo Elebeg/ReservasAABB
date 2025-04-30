@@ -142,12 +142,12 @@ export class ReservationsService {
     });
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { name: 'remove-past-reservations' })
   async removePastReservations(): Promise<void> {
     const now = new Date();
     await this.reservationRepo.delete({
       startTime: LessThan(now),
     });
     console.log('[CronJob] Reservas antigas removidas com sucesso');
-  }
+  }  
 }
