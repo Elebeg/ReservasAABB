@@ -14,6 +14,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'postgres',
+      //url: process.env.DATABASE_URL,
       host: process.env.DATABASE_HOST,
       port: Number(process.env.DATABASE_PORT || 5432),
       username: process.env.DATABASE_USER,
