@@ -19,7 +19,11 @@ export class AuthService {
     }
 
     const hash = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create({ email: dto.email, password: hash });
+    const user = await this.usersService.create({
+      name: dto.name,
+      email: dto.email,
+      password: hash,
+    });
 
     return { message: 'User registered successfully', userId: user.id };
   }
@@ -41,6 +45,7 @@ export class AuthService {
   
     if (!existing) {
       existing = await this.usersService.create({
+        name: user.name,
         email: user.email,
         password: '', 
       });
