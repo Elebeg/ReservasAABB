@@ -128,6 +128,9 @@ export class ReservationsService {
       throw new NotFoundException('Reserva não encontrada.');
     }
 
+    console.log('ID do usuário da reserva:', reservation.user.id);
+    console.log('ID do usuário autenticado:', user.id);
+
     if (reservation.user.id !== user.id) {
       throw new BadRequestException('Você não pode excluir reservas de outros usuários.');
     }
