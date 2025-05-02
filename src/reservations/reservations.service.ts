@@ -85,10 +85,10 @@ export class ReservationsService {
   async findUserReservations(user: User): Promise<Reservation[]> {
     return this.reservationRepo.find({
       where: { user: { id: user.id } },
-      relations: ['court'], 
+      relations: ['court', 'user'], 
+      order: { startTime: 'ASC' },
     });
-  }
-  
+  }  
 
   async update(user: User, id: number, updateReservationDto: UpdateReservationDto): Promise<Reservation> {
     const reservation = await this.reservationRepo.findOne({
