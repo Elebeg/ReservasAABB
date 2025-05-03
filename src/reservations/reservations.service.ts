@@ -108,12 +108,10 @@ export class ReservationsService {
       throw new BadRequestException('Você não pode alterar reservas de outros usuários.');
     }
   
-    // Certifique-se de que a data está sendo parseada corretamente
     const newStartTime = new Date(updateReservationDto.startTime);
     console.log('Data recebida:', updateReservationDto.startTime);
     console.log('Data convertida:', newStartTime);
   
-    // Validação da data
     if (isNaN(newStartTime.getTime())) {
       throw new BadRequestException('Formato de data inválido');
     }
@@ -125,7 +123,6 @@ export class ReservationsService {
       throw new BadRequestException('As reservas só podem ser feitas entre 08:00 e 22:00 (horário de Brasília).');
     }
   
-    // Verificar disponibilidade
     const isAvailable = await this.checkAvailability(reservation.court.id, newStartTime);
     if (!isAvailable && new Date(reservation.startTime).getTime() !== newStartTime.getTime()) {
       throw new BadRequestException('O horário selecionado já está reservado.');
