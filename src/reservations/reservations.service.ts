@@ -93,30 +93,45 @@ export class ReservationsService {
   } 
 
   async update(user: User, id: number, updateReservationDto: UpdateReservationDto): Promise<Reservation> {
+    console.log('Recebendo solicitação de atualização:', id, updateReservationDto);
+    
     const reservation = await this.reservationRepo.findOne({
       where: { id },
       relations: ['user'],
     });
-
+  
     if (!reservation) {
       throw new NotFoundException('Reserva não encontrada.');
     }
-
+  
     if (reservation.user.id !== user.id) {
       throw new BadRequestException('Você não pode alterar reservas de outros usuários.');
     }
-
+  
+    // Certifique-se de que a data está sendo parseada corretamente
     const newStartTime = new Date(updateReservationDto.startTime);
-
+    console.log('Data recebida:', updateReservationDto.startTime);
+    console.log('Data convertida:', newStartTime);
+  
+    // Validação da data
+    if (isNaN(newStartTime.getTime())) {
+      throw new BadRequestException('Formato de data inválido');
+    }
+  
     const startInBrasilia = DateTime.fromJSDate(newStartTime).setZone('America/Sao_Paulo');
     const hour = startInBrasilia.hour;
   
     if (hour < 8 || hour >= 22) {
       throw new BadRequestException('As reservas só podem ser feitas entre 08:00 e 22:00 (horário de Brasília).');
     }
-
-    reservation.startTime = new Date(updateReservationDto.startTime);
-
+  
+    // Verificar disponibilidade
+    const isAvailable = await this.checkAvailability(reservation.court.id, newStartTime);
+    if (!isAvailable && new Date(reservation.startTime).getTime() !== newStartTime.getTime()) {
+      throw new BadRequestException('O horário selecionado já está reservado.');
+    }
+  
+    reservation.startTime = newStartTime;
     return this.reservationRepo.save(reservation);
   }
 
