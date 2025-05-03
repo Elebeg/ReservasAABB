@@ -31,15 +31,15 @@ export class ReservationsController {
   @Put(':id')
   update(
     @Request() req,
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updateReservationDto: UpdateReservationDto,
   ) {
-    return this.reservationsService.update(req.user, id, updateReservationDto);
+    return this.reservationsService.update(req.user, +id, updateReservationDto);
   }
-
+  
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Request() req, @Param('id') id: number) {
-    return this.reservationsService.remove(req.user, id);
+  remove(@Request() req, @Param('id') id: string) {
+    return this.reservationsService.remove(req.user, +id); 
   }
 }
