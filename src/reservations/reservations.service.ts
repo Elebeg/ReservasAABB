@@ -6,7 +6,6 @@ import { Reservation } from './reservation.entity';
 import { Court } from '../courts/court.entity';
 import { User } from '../users/user.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -82,81 +81,75 @@ export class ReservationsService {
       return this.reservationRepo.save(reservation);
   }
 
-  async findUserReservations(user: User): Promise<Reservation[]> {
-    console.log('Buscando reservas para o usuário:', user.id, user.email);
-    
-    return this.reservationRepo.find({
-      where: { user: { id: user.id } },
-      relations: ['court', 'user'],
-      order: { startTime: 'ASC' },
-    });
-  } 
-
-  async update(user: User, id: number, updateReservationDto: UpdateReservationDto): Promise<Reservation> {
-    console.log('Recebendo solicitação de atualização:', id, updateReservationDto);
-    
-    const reservation = await this.reservationRepo.findOne({
-      where: { id },
-      relations: ['user'],
-    });
-  
-    if (!reservation) {
-      throw new NotFoundException('Reserva não encontrada.');
-    }
-  
-    if (reservation.user.id !== user.id) {
-      throw new BadRequestException('Você não pode alterar reservas de outros usuários.');
-    }
-  
-    const newStartTime = new Date(updateReservationDto.startTime);
-    console.log('Data recebida:', updateReservationDto.startTime);
-    console.log('Data convertida:', newStartTime);
-  
-    if (isNaN(newStartTime.getTime())) {
-      throw new BadRequestException('Formato de data inválido');
-    }
-  
-    const startInBrasilia = DateTime.fromJSDate(newStartTime).setZone('America/Sao_Paulo');
-    const hour = startInBrasilia.hour;
-  
-    if (hour < 8 || hour >= 22) {
-      throw new BadRequestException('As reservas só podem ser feitas entre 08:00 e 22:00 (horário de Brasília).');
-    }
-  
-    const isAvailable = await this.checkAvailability(reservation.court.id, newStartTime);
-    if (!isAvailable && new Date(reservation.startTime).getTime() !== newStartTime.getTime()) {
-      throw new BadRequestException('O horário selecionado já está reservado.');
-    }
-  
-    reservation.startTime = newStartTime;
-    return this.reservationRepo.save(reservation);
-  }
-
-  async remove(user: User, id: number): Promise<void> {
-    const reservation = await this.reservationRepo.findOne({
-      where: { id },
-      relations: ['user'],
-    });
-
-    if (!reservation) {
-      throw new NotFoundException('Reserva não encontrada.');
-    }
-
-    console.log('ID do usuário da reserva:', reservation.user.id);
-    console.log('ID do usuário autenticado:', user.id);
-
-    if (reservation.user.id !== user.id) {
-      throw new BadRequestException('Você não pode excluir reservas de outros usuários.');
-    }
-
-    await this.reservationRepo.remove(reservation);
-  }
-
   async findAll(): Promise<Reservation[]> {
     return this.reservationRepo.find({
       relations: ['court', 'user'],
       order: { startTime: 'ASC' },
     });
+  }
+
+  async findByUser(userId: number): Promise<Reservation[]> {
+    return this.reservationRepo.find({
+      where: { user: { id: userId } },
+      relations: ['court'],
+      order: { startTime: 'ASC' },
+    });
+  }
+  
+  async updateDate(userId: number, reservationId: number, newStartTime: Date): Promise<Reservation> {
+    const reservation = await this.reservationRepo.findOne({
+      where: { id: reservationId },
+      relations: ['user', 'court'],
+    });
+  
+    if (!reservation) {
+      throw new NotFoundException('Reserva não encontrada.');
+    }
+  
+    if (reservation.user.id !== userId) {
+      throw new BadRequestException('Você não tem permissão para alterar esta reserva.');
+    }
+  
+    const now = new Date();
+    const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const maxTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  
+    const startTimeDate = new Date(newStartTime);
+    if (startTimeDate < minTime || startTimeDate > maxTime) {
+      throw new BadRequestException('A nova data está fora do intervalo permitido.');
+    }
+  
+    const startInBrasilia = DateTime.fromJSDate(startTimeDate).setZone('America/Sao_Paulo');
+    const hour = startInBrasilia.hour;
+  
+    if (hour < 8 || hour >= 22) {
+      throw new BadRequestException('O horário permitido é entre 08:00 e 22:00.');
+    }
+  
+    const isAvailable = await this.checkAvailability(reservation.court.id, startTimeDate);
+    if (!isAvailable) {
+      throw new BadRequestException('O horário já está reservado.');
+    }
+  
+    reservation.startTime = startTimeDate;
+    return this.reservationRepo.save(reservation);
+  }
+  
+  async deleteByUser(userId: number, reservationId: number): Promise<void> {
+    const reservation = await this.reservationRepo.findOne({
+      where: { id: reservationId },
+      relations: ['user'],
+    });
+  
+    if (!reservation) {
+      throw new NotFoundException('Reserva não encontrada.');
+    }
+  
+    if (reservation.user.id !== userId) {
+      throw new BadRequestException('Você não tem permissão para excluir esta reserva.');
+    }
+  
+    await this.reservationRepo.remove(reservation);
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { name: 'remove-past-reservations' })

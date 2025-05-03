@@ -1,4 +1,3 @@
-// src/reservations/dto/create-reservation.dto.ts
 import { IsInt, IsDateString, IsNotEmpty } from 'class-validator';
 
 export class CreateReservationDto {
