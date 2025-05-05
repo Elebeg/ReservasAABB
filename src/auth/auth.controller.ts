@@ -29,6 +29,6 @@ export class AuthController {
   async googleAuthRedirect(@Req() req, @Res() res: Response) {
     const { access_token } = await this.authService.googleLogin(req.user);
   
-    return res.redirect(`https://reservasaabb-production.up.railway.app/auth/callback?token=${access_token}`);
+    return res.redirect(`https://aabbjdsreservas.com/?token=${access_token}`);
   }
 }
