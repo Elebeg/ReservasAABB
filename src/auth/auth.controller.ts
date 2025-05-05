@@ -1,13 +1,20 @@
 import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
-import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { OAuth2Client } from 'google-auth-library';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private oauthClient: OAuth2Client;
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {
+    this.oauthClient = new OAuth2Client(this.configService.get('GOOGLE_CLIENT_ID'));
+  }
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -19,16 +26,14 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleAuth() {
-  }
+  @Post('google')
+  async googleLogin(@Body('credential') credential: string) {
+  const ticket = await this.oauthClient.verifyIdToken({
+    idToken: credential,
+    audience: this.configService.get('GOOGLE_CLIENT_ID'),
+  });
 
-  @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req, @Res() res: Response) {
-    const { access_token } = await this.authService.googleLogin(req.user);
-  
-    return res.redirect(`https://aabbjdsreservas.com/?token=${access_token}`);
+  const payload = ticket.getPayload();
+  return this.authService.googleLogin(payload);
   }
 }
