@@ -152,7 +152,7 @@ export class ReservationsService {
     await this.reservationRepo.remove(reservation);
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { name: 'remove-past-reservations' })
+  @Cron('0 3 * * *', { name: 'remove-past-reservations' }) 
   async removePastReservations(): Promise<void> {
     const now = new Date();
     await this.reservationRepo.delete({
