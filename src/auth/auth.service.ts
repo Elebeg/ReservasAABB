@@ -46,24 +46,29 @@ export class AuthService {
      };
   }
 
-  async googleLogin(user: { email: string; name: string }) {
-    let existing = await this.usersService.findByEmail(user.email);
-  
-    if (!existing) {
-      existing = await this.usersService.create({
-        name: user.name,
-        email: user.email,
-        password: '', 
-      });
-    }
-  
-    const payload = { sub: existing.id, email: existing.email };
-    const token = this.jwtService.sign(payload);
-  
-    return {
-      message: 'Login via Google bem-sucedido',
-      access_token: token,
-    };
+async googleLogin(googleUser: any) {
+  if (!googleUser) {
+    throw new UnauthorizedException('Usuário Google inválido');
   }
+
+  let user = await this.usersService.findByEmail(googleUser.email);
+
+  if (!user) {
+    user = await this.usersService.create({
+      email: googleUser.email,
+      name: googleUser.name,
+      password: Math.random().toString(36).slice(-8), 
+    });
+  }
+
+  const payload = { sub: user.id, email: user.email };
+  const token = await this.jwtService.signAsync(payload);
+
+  return {
+    message: 'Login via Google bem-sucedido',
+    access_token: token,
+  };
+}
+
   
 }
