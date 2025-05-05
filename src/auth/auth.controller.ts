@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -25,7 +26,9 @@ export class AuthController {
 
   @Get('google/redirect')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req) {
-    return this.authService.googleLogin(req.user);
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    const { access_token } = await this.authService.googleLogin(req.user);
+  
+    return res.redirect(`https://reservasaabb-production.up.railway.app/auth/callback?token=${access_token}`);
   }
 }
