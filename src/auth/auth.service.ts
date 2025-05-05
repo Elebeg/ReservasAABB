@@ -24,14 +24,18 @@ export class AuthService {
     if (existing) {
       throw new ConflictException('Email already registered');
     }
-
+  
+    if (!dto.password) {
+      throw new UnauthorizedException('Password is required');
+    }
+  
     const hash = await bcrypt.hash(dto.password, 10);
     const user = await this.usersService.create({
       name: dto.name,
       email: dto.email,
       password: hash,
     });
-
+  
     return { message: 'User registered successfully', userId: user.id };
   }
 
@@ -53,29 +57,41 @@ export class AuthService {
      };
   }
 
-async googleLogin(googleUser: any) {
-  if (!googleUser) {
-    throw new UnauthorizedException('Usuário Google inválido');
+  async googleLogin(googleUser: any) {
+    if (!googleUser) {
+      throw new UnauthorizedException('Usuário Google inválido');
+    }
+  
+    let user = await this.usersService.findByEmail(googleUser.email);
+  
+    if (!user) {
+      // For Google users, use googleId and set emailVerified to true
+      user = await this.usersService.create({
+        email: googleUser.email,
+        name: googleUser.name,
+        googleId: googleUser.sub, // Use Google's subject identifier
+        emailVerified: true,
+      });
+    } else if (!user.googleId) {
+      // If the user exists but hasn't linked Google yet, update their account
+      user = await this.usersService.update(user.id, {
+        googleId: googleUser.sub,
+        emailVerified: true,
+      });
+    }
+  
+    const payload = { sub: user.id, email: user.email };
+    const token = await this.jwtService.signAsync(payload);
+  
+    return {
+      message: 'Login via Google bem-sucedido',
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      }
+    };
   }
-
-  let user = await this.usersService.findByEmail(googleUser.email);
-
-  if (!user) {
-    user = await this.usersService.create({
-      email: googleUser.email,
-      name: googleUser.name,
-      password: Math.random().toString(36).slice(-8), 
-    });
-  }
-
-  const payload = { sub: user.id, email: user.email };
-  const token = await this.jwtService.signAsync(payload);
-
-  return {
-    message: 'Login via Google bem-sucedido',
-    access_token: token,
-  };
-}
-
   
 }

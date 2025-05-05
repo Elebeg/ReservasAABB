@@ -12,10 +12,15 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: true})
+  @Column({ nullable: true })
   password: string;
+
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  @Column({ nullable: true })
+  googleId: string;
 
   @OneToMany(() => Reservation, (reservation) => reservation.user)
   reservations: Reservation[];
-
 }
