@@ -84,7 +84,6 @@ export class AuthService {
     const token = await this.jwtService.signAsync(payload);
   
     return {
-      message: 'Login via Google bem-sucedido',
       access_token: token,
       user: {
         id: user.id,
