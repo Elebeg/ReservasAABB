@@ -198,7 +198,7 @@ export class TournamentsService {
   }
 
   async onModuleInit() {
-    const tournamentDate = new Date(Date.UTC(2025, 4, 17));
+    const tournamentDate = new Date(Date.UTC(2025, 4, 18));
     const existingTournament = await this.findByDate(tournamentDate);
     
     if (!existingTournament) {
