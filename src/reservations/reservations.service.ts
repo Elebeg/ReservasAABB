@@ -7,6 +7,7 @@ import { Court } from '../courts/court.entity';
 import { User } from '../users/user.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { TournamentsService } from 'src/tournaments/tournaments.service';
 
 @Injectable()
 export class ReservationsService {
@@ -17,13 +18,24 @@ export class ReservationsService {
     private courtRepo: Repository<Court>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    private tournamentsService: TournamentsService,
   ) {}
 
   async checkAvailability(courtId: number, startTime: Date): Promise<boolean> {
     const conflictingReservation = await this.reservationRepo.findOne({
       where: { court: { id: courtId }, startTime },
     });
-    return !conflictingReservation;
+    
+    if (conflictingReservation) {
+      return false;
+    }
+    
+    const isTournamentDay = await this.tournamentsService.isCourtReservedForTournament(
+      courtId,
+      startTime
+    );
+    
+    return !isTournamentDay;
   }
 
   async create(user: User, createReservationDto: CreateReservationDto): Promise<Reservation> {
@@ -61,7 +73,16 @@ export class ReservationsService {
       
     const isAvailable = await this.checkAvailability(courtId, startTimeDate);
     if (!isAvailable) {
-      throw new BadRequestException('O horário selecionado já está reservado.');
+      const isTournamentDay = await this.tournamentsService.isCourtReservedForTournament(
+        courtId,
+        startTimeDate
+      );
+      
+      if (isTournamentDay) {
+        throw new BadRequestException('Esta quadra está reservada para um torneio nesta data.');
+      } else {
+        throw new BadRequestException('O horário selecionado já está reservado.');
+      }
     }
 
     const dbUser = await this.userRepo.findOne({ where: { email: user.email } });
@@ -129,6 +150,15 @@ export class ReservationsService {
     const isAvailable = await this.checkAvailability(reservation.court.id, startTimeDate);
     if (!isAvailable) {
       throw new BadRequestException('O horário já está reservado.');
+    }
+
+    const isTournamentDay = await this.tournamentsService.isCourtReservedForTournament(
+      reservation.court.id,
+      newStartTime
+    );
+    
+    if (isTournamentDay) {
+      throw new BadRequestException('Esta quadra está reservada para um torneio nesta data.');
     }
   
     reservation.startTime = startTimeDate;

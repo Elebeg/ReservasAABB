@@ -7,11 +7,13 @@ import { CourtsModule } from '../courts/courts.module';
 import { UsersModule } from '../users/users.module';
 import { Court } from 'src/courts/court.entity';
 import { User } from 'src/users/user.entity';
+import { TournamentsModule } from 'src/tournaments/tournament.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Reservation, Court, User]), 
   CourtsModule, 
-  UsersModule
+  UsersModule,
+  TournamentsModule,
   ],
   providers: [ReservationsService],
   controllers: [ReservationsController],
