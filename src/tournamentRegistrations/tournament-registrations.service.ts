@@ -88,27 +88,6 @@ export class TournamentRegistrationsService {
   });
   await this.registrationRepo.save(registration);
 
-  // Inscrição do parceiro, se não estiver registrado
-  if (partnerUser) {
-    const alreadyRegistered = await this.registrationRepo.findOne({
-      where: {
-        tournament: { id: tournamentId },
-        user: { id: partnerUser.id },
-      },
-    });
-  
-    if (!alreadyRegistered) {
-      const partnerRegistration = this.registrationRepo.create({
-        tournament,
-        user: partnerUser,
-        gender, 
-        partnerEmail: user.email, 
-        category,
-      });
-      await this.registrationRepo.save(partnerRegistration);
-    }
-  }
-
    return registration;
   }
 
