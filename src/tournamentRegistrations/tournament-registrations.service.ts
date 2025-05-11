@@ -87,8 +87,14 @@ export class TournamentRegistrationsService {
     category,
   });
   await this.registrationRepo.save(registration);
-
-   return registration;
+  
+  // Retorna com o relacionamento do usuário preenchido
+  const fullRegistration = await this.registrationRepo.findOne({
+    where: { id: registration.id },
+    relations: ['user'],
+  });
+  
+  return fullRegistration!;
   }
 
 async findByUser(userId: number): Promise<TournamentRegistration[]> {

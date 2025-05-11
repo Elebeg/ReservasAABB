@@ -175,22 +175,22 @@ export class TournamentsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
     const now = new Date();
-    const tournaments = await this.tournamentRepo.find(); // Pega todos os torneios
+
+    const tournaments = await this.tournamentRepo.find({
+      relations: ['registrations', 'registrations.user'],
+    });
 
     for (const tournament of tournaments) {
-      // Verifica se a data do torneio já passou
       if (tournament.date < now && tournament.status !== 'finalizado') {
         tournament.status = 'finalizado';
         tournament.isRegistrationOpen = false;
 
-        // Salva o torneio com o novo status
-        await this.tournamentRepo.save(tournament);
-
-        // Finaliza todas as inscrições do torneio
         for (const registration of tournament.registrations) {
           registration.status = 'finalizado';
-          await this.registrationRepo.save(registration);
         }
+
+        await this.tournamentRepo.save(tournament);
+        await this.registrationRepo.save(tournament.registrations);
 
         console.log(`Torneio ${tournament.name} finalizado!`);
       }
