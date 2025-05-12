@@ -8,6 +8,7 @@ import { User } from '../users/user.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
+import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
@@ -191,3 +192,4 @@ export class ReservationsService {
     console.log('[CronJob] Reservas antigas removidas com sucesso');
   }  
 }
+
