@@ -1,7 +1,6 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Request, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
 
@@ -23,23 +22,19 @@ export class ReservationsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  findUserReservations(@Request() req) {
-    return this.reservationsService.findUserReservations(req.user);
+  findMine(@Request() req) {
+    return this.reservationsService.findByUser(req.user.userId);
   }
-
+  
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  update(
-    @Request() req,
-    @Param('id') id: number,
-    @Body() updateReservationDto: UpdateReservationDto,
-  ) {
-    return this.reservationsService.update(req.user, id, updateReservationDto);
+  updateReservationDate(@Param('id') id: number, @Request() req, @Body('startTime') startTime: Date) {
+    return this.reservationsService.updateDate(req.user.userId, id, startTime);
   }
-
+  
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Request() req, @Param('id') id: number) {
-    return this.reservationsService.remove(req.user, id);
+  deleteReservation(@Param('id') id: number, @Request() req) {
+    return this.reservationsService.deleteByUser(req.user.userId, id);
   }
 }

@@ -11,8 +11,12 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<User> {
-    const user = this.userRepo.create(dto);
+  async create(userData: CreateUserDto) {
+    if (!userData.googleId && !userData.password) {
+      throw new Error('Password is required for standard registration');
+    }
+    
+    const user = this.userRepo.create(userData);
     return this.userRepo.save(user);
   }
 
@@ -26,5 +30,16 @@ export class UsersService {
 
   async findById(id: number): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
+  }
+
+  async update(id: number, updateData: Partial<User>): Promise<User> {
+    await this.userRepo.update(id, updateData);
+    const updatedUser = await this.userRepo.findOne({ where: { id } });
+    
+    if (!updatedUser) {
+      throw new Error(`User with ID ${id} not found after update`);
+    }
+    
+    return updatedUser;
   }
 }

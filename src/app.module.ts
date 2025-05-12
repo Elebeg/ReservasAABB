@@ -9,6 +9,9 @@ import { Reservation } from './reservations/reservation.entity';
 import { CourtsModule } from './courts/courts.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { TournamentsModule } from './tournaments/tournament.module';
+import { Tournament } from './tournaments/tournament.entity';
+import { TournamentRegistration } from './tournamentRegistrations/tournament-registration.entity';
 
 @Module({
   imports: [
@@ -16,17 +19,20 @@ import { ScheduleModule } from '@nestjs/schedule';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DATABASE_HOST,
-      port: Number(process.env.DATABASE_PORT || 5432),
-      username: process.env.DATABASE_USER,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME,
-      entities: [User, Court, Reservation],
+      url: process.env.DATABASE_URL,
+      //host: process.env.DATABASE_HOST,
+      //port: Number(process.env.DATABASE_PORT || 5432),
+      //username: process.env.DATABASE_USER,
+      //password: process.env.DATABASE_PASSWORD,
+      //database: process.env.DATABASE_NAME,
+      entities: [User, Court, Reservation, Tournament, TournamentRegistration],
       synchronize: true, 
     }),
     UsersModule,
     AuthModule,
     CourtsModule,
+    ReservationsModule,
+    TournamentsModule,
     ReservationsModule,
   ],
 })
