@@ -61,12 +61,15 @@ export class ReservationsService {
     );
   }
 
-  // 💡 NOVA REGRA: máximo 4 reservas ativas por usuário
+  // 💡 NOVA REGRA: máximo 4 reservas ativas por usuário (só FUTURAS)
   const activeCount = await this.reservationRepo
     .createQueryBuilder('reservation')
     .where('reservation.userId = :userId', { userId: user.id })
     .andWhere('reservation.startTime >= :now', { now })
     .getCount();
+
+  // (se quiser debugar:)
+  // console.log('RESERVAS ATIVAS DO USER', user.id, '=>', activeCount);
 
   if (activeCount >= 4) {
     throw new BadRequestException(
@@ -109,6 +112,7 @@ export class ReservationsService {
 
   return this.reservationRepo.save(reservation);
   }
+
 
   async findAll(): Promise<Reservation[]> {
     return this.reservationRepo.find({
@@ -161,17 +165,23 @@ export class ReservationsService {
   const wasActive = reservation.startTime >= now;
   const willBeActive = startTimeDate >= now;
 
-  const activeCount = await this.reservationRepo
-    .createQueryBuilder('reservation')
-    .where('reservation.userId = :userId', { userId })
-    .andWhere('reservation.startTime >= :now', { now })
-    .getCount();
+  // 💡 Se a reserva NÃO era ativa e vai passar a ser ativa, precisamos checar o limite de 4
+  if (!wasActive && willBeActive) {
+    const activeCount = await this.reservationRepo
+      .createQueryBuilder('reservation')
+      .where('reservation.userId = :userId', { userId })
+      .andWhere('reservation.startTime >= :now', { now })
+      .getCount();
 
-  if (activeCount >= 4) {
-    throw new BadRequestException(
-      'Você já possui 4 reservas ativas. Cancele ou edite uma delas antes de definir uma nova data.',
-    );
+    // console.log('ATIVAS NO UPDATE', userId, '=>', activeCount);
+
+    if (activeCount >= 4) {
+      throw new BadRequestException(
+        'Você já possui 4 reservas ativas. Cancele ou edite uma delas antes de definir uma nova data.',
+      );
+    }
   }
+
 
   // Verifica se o novo horário já está ocupado por outra reserva
   const isAvailable = await this.checkAvailability(
