@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Reservation } from './reservation.entity';
 import { Court } from '../courts/court.entity';
 import { User } from '../users/user.entity';
@@ -39,68 +39,79 @@ export class ReservationsService {
   }
 
   async create(user: User, createReservationDto: CreateReservationDto): Promise<Reservation> {
-    const { courtId, startTime } = createReservationDto;
+  const { courtId, startTime } = createReservationDto;
 
-    const currentTime = new Date();
-    
-    const startTimeDate = new Date(startTime);
+  const currentTime = new Date();
+  const startTimeDate = new Date(startTime);
 
-    const minTime = new Date(currentTime.getTime() + 2 * 60 * 60 * 1000);
-    const maxTime = new Date(currentTime.getTime() + 7 * 24 * 60 * 60 * 1000); 
+  const minTime = new Date(currentTime.getTime() + 2 * 60 * 60 * 1000);
+  const maxTime = new Date(currentTime.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    if (startTimeDate < minTime) {
-      throw new BadRequestException('A reserva deve ser feita com no mínimo 2 horas de antecedência.');
-    }
-    if (startTimeDate > maxTime) {
-      throw new BadRequestException('A reserva não pode ser feita mais de 7 dias antes.');
-    }
-
-    const startInBrasilia = DateTime.fromJSDate(startTimeDate).setZone('America/Sao_Paulo');
-
-    const hour = startInBrasilia.hour;
-
-    if (hour < 8 || hour >= 22) {
-      throw new BadRequestException('As reservas só podem ser feitas entre 08:00 e 22:00 (horário de Brasília).');
-    }
-
-    const court = await this.courtRepo.findOne({
-        where: { id: courtId },
-      });
-      
-    if (!court) {
-      throw new NotFoundException('Quadra não encontrada.');
-    }
-      
-    const isAvailable = await this.checkAvailability(courtId, startTimeDate);
-    if (!isAvailable) {
-      const isTournamentDay = await this.tournamentsService.isCourtReservedForTournament(
-        courtId,
-        startTimeDate
-      );
-      
-      if (isTournamentDay) {
-        throw new BadRequestException('Esta quadra está reservada para um torneio nesta data.');
-      } else {
-        throw new BadRequestException('O horário selecionado já está reservado.');
-      }
-    }
-
-    const dbUser = await this.userRepo.findOne({ where: { email: user.email } });
-
-    if (!dbUser) {
-      throw new NotFoundException('Usuário não encontrado.');
-    }
-
-    const reservation = this.reservationRepo.create({
-        user: dbUser,
-        court,
-        startTime: startTimeDate,
-      });
-      
-      console.log('Reserva a ser salva:', reservation);
-      
-      return this.reservationRepo.save(reservation);
+  if (startTimeDate < minTime) {
+    throw new BadRequestException('A reserva deve ser feita com no mínimo 2 horas de antecedência.');
   }
+  if (startTimeDate > maxTime) {
+    throw new BadRequestException('A reserva não pode ser feita mais de 7 dias antes.');
+  }
+
+  const startInBrasilia = DateTime.fromJSDate(startTimeDate).setZone('America/Sao_Paulo');
+  const hour = startInBrasilia.hour;
+
+  if (hour < 8 || hour >= 22) {
+    throw new BadRequestException('As reservas só podem ser feitas entre 08:00 e 22:00 (horário de Brasília).');
+  }
+
+  const court = await this.courtRepo.findOne({
+    where: { id: courtId },
+  });
+
+  if (!court) {
+    throw new NotFoundException('Quadra não encontrada.');
+  }
+
+  const dbUser = await this.userRepo.findOne({ where: { email: user.email } });
+
+  if (!dbUser) {
+    throw new NotFoundException('Usuário não encontrado.');
+  }
+
+  const activeReservationsCount = await this.reservationRepo.count({
+    where: {
+      user: { id: dbUser.id },
+      startTime: MoreThanOrEqual(currentTime), 
+    },
+  });
+
+  if (activeReservationsCount >= 4) {
+    throw new BadRequestException('Você já possui o número máximo de 4 reservas ativas.');
+  }
+
+  // 🔹 Verificar disponibilidade da quadra (inclui dia de torneio)
+  const isAvailable = await this.checkAvailability(courtId, startTimeDate);
+  if (!isAvailable) {
+    const isTournamentDay = await this.tournamentsService.isCourtReservedForTournament(
+      courtId,
+      startTimeDate,
+    );
+
+    if (isTournamentDay) {
+      throw new BadRequestException('Esta quadra está reservada para um torneio nesta data.');
+    } else {
+      throw new BadRequestException('O horário selecionado já está reservado.');
+    }
+  }
+
+  const reservation = this.reservationRepo.create({
+    user: dbUser,
+    court,
+    startTime: startTimeDate,
+  });
+
+  console.log('Reserva a ser salva:', reservation);
+
+  return this.reservationRepo.save(reservation);
+  }
+
 
   async findAll(): Promise<Reservation[]> {
     return this.reservationRepo.find({
