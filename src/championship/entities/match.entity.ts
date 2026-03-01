@@ -72,6 +72,10 @@ export class Match {
   @Column({ default: 1 })
   round: number;
 
+  // Data/hora agendada para a partida
+  @Column({ type: 'timestamp', nullable: true })
+  scheduledAt: Date | null;
+
   // Bracket linking: qual partida recebe o vencedor desta
   @Column({ type: 'int', nullable: true })
   nextMatchId: number | null;

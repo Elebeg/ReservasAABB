@@ -30,3 +30,8 @@ export class UpdateResultDto {
 export class AssignGroupsDto {
   assignments: { teamId: number; groupIndex: number }[];
 }
+
+export class ScheduleMatchDto {
+  /** ISO 8601 — ex: "2025-06-15T15:00:00" */
+  scheduledAt: string | null;
+}

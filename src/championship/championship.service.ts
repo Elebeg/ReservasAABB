@@ -15,6 +15,7 @@ import {
   AddTeamDto,
   RecordResultDto,
   UpdateResultDto,
+  ScheduleMatchDto,
   AssignGroupsDto,
 } from './dto/championship.dto';
 
@@ -406,7 +407,29 @@ export class ChampionshipService {
   async getMatches(tournamentId: number, phase?: MatchPhase) {
     const where: any = { tournamentId };
     if (phase) where.phase = phase;
-    return this.matchRepo.find({ where, order: { round: 'ASC', id: 'ASC' } });
+    const matches = await this.matchRepo.find({ where, order: { scheduledAt: 'ASC', round: 'ASC', id: 'ASC' } });
+    return matches.map((m) => ({
+      id:             m.id,
+      phase:          m.phase,
+      status:         m.status,
+      round:          m.round,
+      scheduledAt:    m.scheduledAt ?? null,
+      homeTeam:       m.homeTeam  ? { id: m.homeTeam.id,  name: m.homeTeam.name  } : null,
+      awayTeam:       m.awayTeam  ? { id: m.awayTeam.id,  name: m.awayTeam.name  } : null,
+      homeScore:      m.homeScore,
+      awayScore:      m.awayScore,
+      homePenalties:  m.homePenalties,
+      awayPenalties:  m.awayPenalties,
+    }));
+  }
+
+  /** Define (ou limpa) a data/hora de uma partida */
+  async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<{ id: number; scheduledAt: Date | null }> {
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+    match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    await this.matchRepo.save(match);
+    return { id: match.id, scheduledAt: match.scheduledAt };
   }
 
   // ─── PRIVATE HELPERS ──────────────────────────────────────────────────────

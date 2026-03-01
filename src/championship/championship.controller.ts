@@ -10,6 +10,7 @@ import {
   RecordResultDto,
   UpdateResultDto,
   AssignGroupsDto,
+  ScheduleMatchDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -104,6 +105,12 @@ export class ChampionshipController {
   @Patch('matches/:matchId/result')
   updateResult(@Param('matchId') matchId: string, @Body() dto: UpdateResultDto) {
     return this.service.updateResult(Number(matchId), dto);
+  }
+
+  /** Define (ou remove) a data/hora agendada de uma partida */
+  @Patch('matches/:matchId/schedule')
+  scheduleMatch(@Param('matchId') matchId: string, @Body() dto: ScheduleMatchDto) {
+    return this.service.scheduleMatch(Number(matchId), dto);
   }
 
   // ─── STANDINGS & BRACKET ──────────────────────────────────────────────────
