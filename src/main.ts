@@ -4,25 +4,28 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+  const extraOrigins = (process.env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
 
   app.enableCors({
     origin: [
-      'https://aabbjdsreservas.com',   // domínio principal
-      'https://localhost:3000',
-      'https://localhost:3001',
-      'https://localhost:5173',          // Vite dev server
-      ...allowedOrigins,               
+      'https://aabbjdsreservas.com',          // frontend Vercel (domínio próprio)
+      'https://reservasaabb-production.up.railway.app', // fallback se acessar pelo Railway
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      ...extraOrigins,
     ],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
-  app.use((req, res, next) => {
+  app.use((_req, res, next) => {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
     next();
   });
