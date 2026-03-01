@@ -15,8 +15,8 @@ import {
   AddTeamDto,
   RecordResultDto,
   UpdateResultDto,
-  ScheduleMatchDto,
   AssignGroupsDto,
+  ScheduleMatchDto,
 } from './dto/championship.dto';
 
 @Injectable()
@@ -91,7 +91,7 @@ export class ChampionshipService {
     if (tournament.status !== TournamentStatus.DRAFT) {
       throw new BadRequestException('Não é possível adicionar times após o início do torneio.');
     }
-    const team = this.teamRepo.create({ name: dto.name, tournamentId });
+    const team = this.teamRepo.create({ name: dto.name, logoUrl: dto.logoUrl ?? null, tournamentId });
     return this.teamRepo.save(team);
   }
 
@@ -365,8 +365,8 @@ export class ChampionshipService {
         matches: matches.map((m) => ({
           id:           m.id,
           status:       m.status,
-          homeTeam:     m.homeTeam ? { id: m.homeTeam.id, name: m.homeTeam.name } : null,
-          awayTeam:     m.awayTeam ? { id: m.awayTeam.id, name: m.awayTeam.name } : null,
+          homeTeam:     m.homeTeam ? { id: m.homeTeam.id, name: m.homeTeam.name, logoUrl: m.homeTeam.logoUrl ?? null } : null,
+          awayTeam:     m.awayTeam ? { id: m.awayTeam.id, name: m.awayTeam.name, logoUrl: m.awayTeam.logoUrl ?? null } : null,
           homeScore:    m.homeScore,
           awayScore:    m.awayScore,
           homePenalties: m.homePenalties,
@@ -392,6 +392,7 @@ export class ChampionshipService {
       standings: this._sortStandings(g.standings).map((s, i) => ({
         position:      i + 1,
         team:          s.team.name,
+        teamLogo:      s.team.logoUrl ?? null,
         played:        s.played,
         wins:          s.wins,
         draws:         s.draws,
@@ -414,14 +415,15 @@ export class ChampionshipService {
       status:         m.status,
       round:          m.round,
       scheduledAt:    m.scheduledAt ?? null,
-      homeTeam:       m.homeTeam  ? { id: m.homeTeam.id,  name: m.homeTeam.name  } : null,
-      awayTeam:       m.awayTeam  ? { id: m.awayTeam.id,  name: m.awayTeam.name  } : null,
+      homeTeam:       m.homeTeam  ? { id: m.homeTeam.id,  name: m.homeTeam.name,  logoUrl: m.homeTeam.logoUrl  ?? null } : null,
+      awayTeam:       m.awayTeam  ? { id: m.awayTeam.id,  name: m.awayTeam.name,  logoUrl: m.awayTeam.logoUrl  ?? null } : null,
       homeScore:      m.homeScore,
       awayScore:      m.awayScore,
       homePenalties:  m.homePenalties,
       awayPenalties:  m.awayPenalties,
     }));
   }
+
 
   /** Define (ou limpa) a data/hora de uma partida */
   async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<{ id: number; scheduledAt: Date | null }> {
@@ -726,10 +728,10 @@ export class ChampionshipService {
     return null;
   }
 
-  private _getWinner(match: Match): { id: number; name: string } | null {
+  private _getWinner(match: Match): { id: number; name: string; logoUrl: string | null } | null {
     const winnerId = this._getWinnerId(match);
     if (!winnerId) return null;
     const team = winnerId === match.homeTeamId ? match.homeTeam : match.awayTeam;
-    return team ? { id: team.id, name: team.name } : null;
+    return team ? { id: team.id, name: team.name, logoUrl: team.logoUrl ?? null } : null;
   }
 }

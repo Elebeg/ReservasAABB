@@ -11,6 +11,7 @@ export class CreateTournamentDto {
 
 export class AddTeamDto {
   name: string;
+  logoUrl?: string;
 }
 
 export class RecordResultDto {
@@ -32,6 +33,6 @@ export class AssignGroupsDto {
 }
 
 export class ScheduleMatchDto {
-  /** ISO 8601 — ex: "2025-06-15T15:00:00" */
+  /** ISO 8601 com offset — ex: "2025-06-15T15:00:00-03:00" */
   scheduledAt: string | null;
 }

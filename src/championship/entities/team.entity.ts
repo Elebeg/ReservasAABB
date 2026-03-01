@@ -9,6 +9,9 @@ export class Team {
   @Column()
   name: string;
 
+  @Column({ nullable: true, type: 'text' })
+  logoUrl: string | null;
+
   @ManyToOne(() => Tournament, (tournament) => tournament.teams, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tournamentId' })
   tournament: Tournament;
