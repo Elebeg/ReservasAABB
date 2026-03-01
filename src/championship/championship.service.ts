@@ -112,7 +112,9 @@ export class ChampionshipService {
    * Para LEAGUE e KNOCKOUT: os jogos são gerados automaticamente.
    */
   async startTournament(tournamentId: number): Promise<Tournament> {
-    const tournament = await this._findTournament(tournamentId, true);
+    // Carrega SEM relações para evitar que save() no final sobrescreva
+    // tournamentId dos grupos recém-criados com undefined (cascade bug TypeORM)
+    const tournament = await this._findTournament(tournamentId, false);
 
     if (tournament.status !== TournamentStatus.DRAFT) {
       throw new BadRequestException('Torneio já foi iniciado.');
@@ -123,22 +125,28 @@ export class ChampionshipService {
       throw new BadRequestException('São necessários pelo menos 2 times para iniciar o torneio.');
     }
 
+    let newStatus: TournamentStatus;
+
     switch (tournament.format) {
       case TournamentFormat.GROUPS:
         await this._startGroupStage(tournament, teams);
-        tournament.status = TournamentStatus.GROUP_STAGE;
+        newStatus = TournamentStatus.GROUP_STAGE;
         break;
       case TournamentFormat.LEAGUE:
         await this._startLeagueStage(tournament, teams);
-        tournament.status = TournamentStatus.GROUP_STAGE;
+        newStatus = TournamentStatus.GROUP_STAGE;
         break;
       case TournamentFormat.KNOCKOUT:
         await this._startKnockout(tournament, teams);
-        tournament.status = TournamentStatus.KNOCKOUT_STAGE;
+        newStatus = TournamentStatus.KNOCKOUT_STAGE;
         break;
+      default:
+        throw new BadRequestException('Formato de torneio inválido.');
     }
 
-    return this.tournamentRepo.save(tournament);
+    // update() só altera a coluna status, sem reescrever relações em memória
+    await this.tournamentRepo.update(tournamentId, { status: newStatus! });
+    return this._findTournament(tournamentId, false);
   }
 
   // ─── ASSIGN GROUPS (apenas GROUPS format) ─────────────────────────────────
@@ -302,8 +310,9 @@ export class ChampionshipService {
     }
 
     const knockoutMatches = await this._startKnockout(tournament, advancingTeams);
-    tournament.status = TournamentStatus.KNOCKOUT_STAGE;
-    await this.tournamentRepo.save(tournament);
+
+    // update() direto evita cascade das relações em memória
+    await this.tournamentRepo.update(tournamentId, { status: TournamentStatus.KNOCKOUT_STAGE });
 
     return knockoutMatches;
   }
