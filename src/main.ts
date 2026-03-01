@@ -12,9 +12,9 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://aabbjdsreservas.com',   // domínio principal
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',          // Vite dev server
+      'https://localhost:3000',
+      'https://localhost:3001',
+      'https://localhost:5173',          // Vite dev server
       ...allowedOrigins,               
     ],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
