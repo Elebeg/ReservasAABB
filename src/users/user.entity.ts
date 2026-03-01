@@ -1,5 +1,4 @@
 import { Reservation } from 'src/reservations/reservation.entity';
-import { TournamentRegistration } from 'src/tournamentRegistrations/tournament-registration.entity';
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 
 @Entity('users')
@@ -24,7 +23,4 @@ export class User {
 
   @OneToMany(() => Reservation, (reservation) => reservation.user)
   reservations: Reservation[];
-
-  @OneToMany(() => TournamentRegistration, registration => registration.user)
-  tournamentRegistrations: TournamentRegistration[];
 }

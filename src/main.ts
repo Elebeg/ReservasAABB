@@ -5,7 +5,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: ['https://aabbjdsreservas.com', 'http://localhost:3000'],
+    origin: [
+      'https://aabbjdsreservas.com', // produção
+      'http://localhost:5173',        // Vite dev server
+      'http://localhost:3000',        // fallback
+      'http://localhost:3001',
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
