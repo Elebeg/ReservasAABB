@@ -10,6 +10,7 @@ import { Team } from './entities/team.entity';
 import { TournamentGroup } from './entities/tournament-group.entity';
 import { GroupStanding } from './entities/group-standing.entity';
 import { Match, MatchPhase, MatchStatus } from './entities/match.entity';
+import { Player, PlayerPosition } from './entities/player.entity';
 import {
   CreateTournamentDto,
   AddTeamDto,
@@ -17,6 +18,10 @@ import {
   UpdateResultDto,
   AssignGroupsDto,
   ScheduleMatchDto,
+  AddPlayerDto,
+  ImportPlayersDto,
+  BulkImportPlayersDto,
+  UpdatePlayerStatsDto,
 } from './dto/championship.dto';
 
 @Injectable()
@@ -27,6 +32,7 @@ export class ChampionshipService {
     @InjectRepository(TournamentGroup) private groupRepo: Repository<TournamentGroup>,
     @InjectRepository(GroupStanding)   private standingRepo: Repository<GroupStanding>,
     @InjectRepository(Match)           private matchRepo: Repository<Match>,
+    @InjectRepository(Player)          private playerRepo: Repository<Player>,
     private dataSource: DataSource,
   ) {}
 
@@ -387,12 +393,20 @@ export class ChampionshipService {
       relations: ['standings', 'standings.team'],
     });
 
+    const players = await this.playerRepo.find({ where: { tournamentId } });
+    const cardMap = new Map<number, { yellow: number; red: number }>();
+    for (const p of players) {
+      const cur = cardMap.get(p.teamId) ?? { yellow: 0, red: 0 };
+      cardMap.set(p.teamId, { yellow: cur.yellow + p.yellowCards, red: cur.red + p.redCards });
+    }
+
     return groups.map((g) => ({
       group:     g.name,
-      standings: this._sortStandings(g.standings).map((s, i) => ({
+      standings: this._sortStandings(g.standings, cardMap).map((s, i) => ({
         position:      i + 1,
         team:          s.team.name,
         teamLogo:      s.team.logoUrl ?? null,
+        teamId:        s.teamId,
         played:        s.played,
         wins:          s.wins,
         draws:         s.draws,
@@ -401,6 +415,8 @@ export class ChampionshipService {
         goalsAgainst:  s.goalsAgainst,
         goalDiff:      s.goalsFor - s.goalsAgainst,
         points:        s.points,
+        yellowCards:   cardMap.get(s.teamId)?.yellow ?? 0,
+        redCards:      cardMap.get(s.teamId)?.red    ?? 0,
       })),
     }));
   }
@@ -432,6 +448,100 @@ export class ChampionshipService {
     match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     await this.matchRepo.save(match);
     return { id: match.id, scheduledAt: match.scheduledAt };
+  }
+
+
+  // ─── PLAYERS ──────────────────────────────────────────────────────────────
+
+  async listPlayers(tournamentId: number, teamId: number): Promise<Player[]> {
+    return this.playerRepo.find({
+      where: { tournamentId, teamId },
+      order: { number: 'ASC', name: 'ASC' },
+    });
+  }
+
+  async listAllPlayers(tournamentId: number): Promise<Player[]> {
+    return this.playerRepo.find({
+      where: { tournamentId },
+      relations: ['team'],
+      order: { goals: 'DESC', yellowCards: 'ASC', name: 'ASC' },
+    });
+  }
+
+  async addPlayer(tournamentId: number, teamId: number, dto: AddPlayerDto): Promise<Player> {
+    const team = await this.teamRepo.findOne({ where: { id: teamId, tournamentId } });
+    if (!team) throw new NotFoundException('Time nao encontrado neste torneio.');
+    const player = this.playerRepo.create({
+      name: dto.name, number: dto.number ?? null,
+      position: (dto.position as PlayerPosition) ?? null,
+      goals: 0, yellowCards: 0, redCards: 0,
+      teamId, tournamentId,
+    });
+    return this.playerRepo.save(player);
+  }
+
+  async importPlayers(tournamentId: number, teamId: number, dto: ImportPlayersDto): Promise<Player[]> {
+    const team = await this.teamRepo.findOne({ where: { id: teamId, tournamentId } });
+    if (!team) throw new NotFoundException('Time nao encontrado neste torneio.');
+    await this.playerRepo.delete({ teamId, tournamentId });
+    const players = dto.players.map((p) =>
+      this.playerRepo.create({
+        name: p.name, number: p.number ?? null,
+        position: (p.position as PlayerPosition) ?? null,
+        goals: 0, yellowCards: 0, redCards: 0,
+        teamId, tournamentId,
+      }),
+    );
+    return this.playerRepo.save(players);
+  }
+
+  /** Importação por texto — "Nome;Número;Posição", substitui o elenco atual */
+  async bulkImportByLines(tournamentId: number, teamId: number, dto: BulkImportPlayersDto): Promise<Player[]> {
+    const team = await this.teamRepo.findOne({ where: { id: teamId, tournamentId } });
+    if (!team) throw new NotFoundException('Time não encontrado neste torneio.');
+
+    const positionMap: Record<string, PlayerPosition> = {
+      GK:  PlayerPosition.GOALKEEPER,
+      DEF: PlayerPosition.DEFENDER,
+      MID: PlayerPosition.MIDFIELDER,
+      FWD: PlayerPosition.FORWARD,
+    };
+
+    const players = dto.lines
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        const [name, numberStr, posStr] = line.split(';').map((s) => s.trim());
+        const parsed = numberStr ? parseInt(numberStr, 10) : NaN;
+        const number   = isNaN(parsed) ? null : parsed;
+        const position = posStr ? (positionMap[posStr.toUpperCase()] ?? null) : null;
+        return this.playerRepo.create({ name, number, position, goals: 0, yellowCards: 0, redCards: 0, teamId, tournamentId });
+      });
+
+    await this.playerRepo.delete({ teamId, tournamentId });
+    return this.playerRepo.save(players);
+  }
+
+  async removePlayer(playerId: number): Promise<void> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) throw new NotFoundException('Jogador nao encontrado.');
+    await this.playerRepo.delete(playerId);
+  }
+
+  async updatePlayerStats(playerId: number, dto: UpdatePlayerStatsDto): Promise<Player> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) throw new NotFoundException('Jogador nao encontrado.');
+    if (dto.goals       !== undefined) player.goals       = Math.max(0, dto.goals);
+    if (dto.yellowCards !== undefined) player.yellowCards  = Math.max(0, dto.yellowCards);
+    if (dto.redCards    !== undefined) player.redCards     = Math.max(0, dto.redCards);
+    return this.playerRepo.save(player);
+  }
+
+  async incrementStat(playerId: number, stat: 'goals' | 'yellowCards' | 'redCards', delta: 1 | -1 = 1): Promise<Player> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) throw new NotFoundException('Jogador nao encontrado.');
+    player[stat] = Math.max(0, player[stat] + delta);
+    return this.playerRepo.save(player);
   }
 
   // ─── PRIVATE HELPERS ──────────────────────────────────────────────────────
@@ -657,13 +767,21 @@ export class ChampionshipService {
   }
 
   /** Ordena classificação: pontos > saldo > gols pró */
-  private _sortStandings(standings: GroupStanding[]): GroupStanding[] {
+  private _sortStandings(standings: GroupStanding[], cardMap?: Map<number, { yellow: number; red: number }>): GroupStanding[] {
     return [...standings].sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
+      if (b.wins   !== a.wins)   return b.wins - a.wins;
       const diffA = a.goalsFor - a.goalsAgainst;
       const diffB = b.goalsFor - b.goalsAgainst;
       if (diffB !== diffA) return diffB - diffA;
-      return b.goalsFor - a.goalsFor;
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+      if (cardMap) {
+        const cA = cardMap.get(a.teamId) ?? { yellow: 0, red: 0 };
+        const cB = cardMap.get(b.teamId) ?? { yellow: 0, red: 0 };
+        if (cA.red !== cB.red) return cA.red - cB.red;
+        if (cA.yellow !== cB.yellow) return cA.yellow - cB.yellow;
+      }
+      return 0;
     });
   }
 

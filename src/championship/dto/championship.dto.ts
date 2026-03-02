@@ -1,4 +1,5 @@
 import { TournamentFormat } from '../entities/tournament.entity';
+import { PlayerPosition } from '../entities/player.entity';
 
 export class CreateTournamentDto {
   name: string;
@@ -35,4 +36,44 @@ export class AssignGroupsDto {
 export class ScheduleMatchDto {
   /** ISO 8601 com offset — ex: "2025-06-15T15:00:00-03:00" */
   scheduledAt: string | null;
+}
+
+// ─── PLAYERS ────────────────────────────────────────────────────────────────
+
+export class AddPlayerDto {
+  name: string;
+  number?: number;
+  position?: PlayerPosition;
+}
+
+/** Item individual para importação estruturada */
+export class ImportPlayerItemDto {
+  name: string;
+  number?: number;
+  position?: PlayerPosition;
+}
+
+/**
+ * Importação estruturada — substitui todo o elenco do time.
+ * Enviar um array de jogadores com nome, número e posição.
+ */
+export class ImportPlayersDto {
+  players: ImportPlayerItemDto[];
+}
+
+/**
+ * Importação por texto — uma linha por jogador no formato "Nome;Número;Posição".
+ * Número e Posição são opcionais.
+ * Posições aceitas: GK, DEF, MID, FWD
+ * Ex: ["Pelé;10;FWD", "Taffarel;1;GK", "Só o Nome"]
+ */
+export class BulkImportPlayersDto {
+  lines: string[];
+}
+
+/** Atualiza estatísticas de um jogador (gols, cartões) */
+export class UpdatePlayerStatsDto {
+  goals?: number;
+  yellowCards?: number;
+  redCards?: number;
 }

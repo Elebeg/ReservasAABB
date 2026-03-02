@@ -60,4 +60,18 @@ export class ChampionshipPublicController {
   getMatches(@Param('id') id: string, @Query('phase') phase?: MatchPhase) {
     return this.service.getMatches(Number(id), phase);
   }
+
+  /** Artilharia + ranking de cartões do torneio ativo */
+  @Get('active/players')
+  async getActivePlayers() {
+    const tournament = await this.service.getActiveTournament();
+    return this.service.listAllPlayers(tournament.id);
+  }
+
+  /** Jogadores de um time específico */
+  @Get('active/teams/:teamId/players')
+  async getActiveTeamPlayers(@Param('teamId') teamId: string) {
+    const tournament = await this.service.getActiveTournament();
+    return this.service.listPlayers(tournament.id, Number(teamId));
+  }
 }

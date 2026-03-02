@@ -11,6 +11,10 @@ import {
   UpdateResultDto,
   AssignGroupsDto,
   ScheduleMatchDto,
+  AddPlayerDto,
+  ImportPlayersDto,
+  BulkImportPlayersDto,
+  UpdatePlayerStatsDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -123,5 +127,72 @@ export class ChampionshipController {
   @Get('tournaments/:id/bracket')
   getBracket(@Param('id') id: string) {
     return this.service.getBracket(Number(id));
+  }
+  // ─── PLAYERS ──────────────────────────────────────────────────────────────
+
+  @Get('tournaments/:id/teams/:teamId/players')
+  listPlayers(@Param('id') id: string, @Param('teamId') teamId: string) {
+    return this.service.listPlayers(Number(id), Number(teamId));
+  }
+
+  /** Todos os jogadores do torneio — artilharia e ranking de cartões */
+  @Get('tournaments/:id/players')
+  listAllPlayers(@Param('id') id: string) {
+    return this.service.listAllPlayers(Number(id));
+  }
+
+  @Post('tournaments/:id/teams/:teamId/players')
+  addPlayer(
+    @Param('id') id: string,
+    @Param('teamId') teamId: string,
+    @Body() dto: AddPlayerDto,
+  ) {
+    return this.service.addPlayer(Number(id), Number(teamId), dto);
+  }
+
+  /** Importação estruturada — substitui o elenco atual do time */
+  @Post('tournaments/:id/teams/:teamId/players/import')
+  importPlayers(
+    @Param('id') id: string,
+    @Param('teamId') teamId: string,
+    @Body() dto: ImportPlayersDto,
+  ) {
+    return this.service.importPlayers(Number(id), Number(teamId), dto);
+  }
+
+  /**
+   * Importação por texto — uma linha por jogador: "Nome;Número;Posição"
+   * Número e Posição são opcionais. Posições: GK, DEF, MID, FWD
+   * Substitui o elenco atual do time.
+   */
+  @Post('tournaments/:id/teams/:teamId/players/import-lines')
+  bulkImportByLines(
+    @Param('id') id: string,
+    @Param('teamId') teamId: string,
+    @Body() dto: BulkImportPlayersDto,
+  ) {
+    return this.service.bulkImportByLines(Number(id), Number(teamId), dto);
+  }
+
+  @Delete('players/:playerId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removePlayer(@Param('playerId') playerId: string) {
+    return this.service.removePlayer(Number(playerId));
+  }
+
+  /** Atualiza estatísticas completas de um jogador */
+  @Patch('players/:playerId/stats')
+  updatePlayerStats(@Param('playerId') playerId: string, @Body() dto: UpdatePlayerStatsDto) {
+    return this.service.updatePlayerStats(Number(playerId), dto);
+  }
+
+  /** +1 / -1 rápido em gol ou cartão */
+  @Patch('players/:playerId/stat/:stat/increment')
+  incrementStat(
+    @Param('playerId') playerId: string,
+    @Param('stat') stat: 'goals' | 'yellowCards' | 'redCards',
+    @Body('delta') delta: 1 | -1,
+  ) {
+    return this.service.incrementStat(Number(playerId), stat, delta ?? 1);
   }
 }
