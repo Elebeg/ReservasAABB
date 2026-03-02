@@ -71,6 +71,13 @@ export class BulkImportPlayersDto {
   lines: string[];
 }
 
+/** Atualiza dados básicos do jogador — todos os campos são opcionais */
+export class UpdatePlayerDto {
+  name?: string;
+  number?: number | null;
+  position?: PlayerPosition | null;
+}
+
 /** Atualiza estatísticas de um jogador (gols, cartões) */
 export class UpdatePlayerStatsDto {
   goals?: number;

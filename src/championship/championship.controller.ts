@@ -14,6 +14,7 @@ import {
   AddPlayerDto,
   ImportPlayersDto,
   BulkImportPlayersDto,
+  UpdatePlayerDto,
   UpdatePlayerStatsDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
@@ -172,6 +173,12 @@ export class ChampionshipController {
     @Body() dto: BulkImportPlayersDto,
   ) {
     return this.service.bulkImportByLines(Number(id), Number(teamId), dto);
+  }
+
+  /** Atualiza nome, número e/ou posição de um jogador (campos opcionais) */
+  @Patch('players/:playerId')
+  updatePlayer(@Param('playerId') playerId: string, @Body() dto: UpdatePlayerDto) {
+    return this.service.updatePlayer(Number(playerId), dto);
   }
 
   @Delete('players/:playerId')

@@ -21,6 +21,7 @@ import {
   AddPlayerDto,
   ImportPlayersDto,
   BulkImportPlayersDto,
+  UpdatePlayerDto,
   UpdatePlayerStatsDto,
 } from './dto/championship.dto';
 
@@ -520,6 +521,15 @@ export class ChampionshipService {
 
     await this.playerRepo.delete({ teamId, tournamentId });
     return this.playerRepo.save(players);
+  }
+
+  async updatePlayer(playerId: number, dto: UpdatePlayerDto): Promise<Player> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) throw new NotFoundException('Jogador não encontrado.');
+    if (dto.name     !== undefined) player.name     = dto.name;
+    if (dto.number   !== undefined) player.number   = dto.number;
+    if (dto.position !== undefined) player.position = dto.position;
+    return this.playerRepo.save(player);
   }
 
   async removePlayer(playerId: number): Promise<void> {
