@@ -226,6 +226,46 @@ export class ChampionshipService {
     return this.matchRepo.findOne({ where: { id: matchId } });
   }
 
+  // ─── DELETE RESULT (cancelar resultado) ──────────────────────────────────
+
+  async deleteResult(matchId: number): Promise<Match> {
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+    if (match.status !== MatchStatus.FINISHED) {
+      throw new BadRequestException('Esta partida não tem resultado registrado.');
+    }
+
+    // Mata-mata: impede reset se a próxima partida já tiver resultado
+    if (match.phase !== MatchPhase.GROUP && match.nextMatchId) {
+      const nextMatch = await this.matchRepo.findOne({ where: { id: match.nextMatchId } });
+      if (nextMatch?.status === MatchStatus.FINISHED) {
+        throw new BadRequestException(
+          'Não é possível cancelar este resultado pois a partida seguinte já foi disputada.',
+        );
+      }
+      // Remove o vencedor do slot na próxima partida
+      if (nextMatch) {
+        if (match.nextMatchSlot === 'home') nextMatch.homeTeamId = null;
+        else                                nextMatch.awayTeamId = null;
+        await this.matchRepo.save(nextMatch);
+      }
+    }
+
+    // Fase de grupos: reverte standings
+    if (match.phase === MatchPhase.GROUP) {
+      await this._revertGroupStanding(match, match.homeScore!, match.awayScore!);
+    }
+
+    match.homeScore     = null;
+    match.awayScore     = null;
+    match.homePenalties = null;
+    match.awayPenalties = null;
+    match.status        = MatchStatus.SCHEDULED;
+    await this.matchRepo.save(match);
+
+    return this.matchRepo.findOne({ where: { id: matchId } }) as Promise<Match>;
+  }
+
   // ─── UPDATE RESULT (correção de placar) ──────────────────────────────────
 
   async updateResult(matchId: number, dto: UpdateResultDto): Promise<Match | null> {

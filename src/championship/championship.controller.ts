@@ -112,6 +112,13 @@ export class ChampionshipController {
     return this.service.updateResult(Number(matchId), dto);
   }
 
+  /** Cancela o resultado de uma partida, revertendo standings/bracket */
+  @Delete('matches/:matchId/result')
+  @HttpCode(HttpStatus.OK)
+  deleteResult(@Param('matchId') matchId: string) {
+    return this.service.deleteResult(Number(matchId));
+  }
+
   /** Define (ou remove) a data/hora agendada de uma partida */
   @Patch('matches/:matchId/schedule')
   scheduleMatch(@Param('matchId') matchId: string, @Body() dto: ScheduleMatchDto) {
