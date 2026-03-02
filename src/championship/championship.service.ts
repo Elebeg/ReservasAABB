@@ -211,10 +211,13 @@ export class ChampionshipService {
   }
 
   async addGoal(matchId: number, dto: AddGoalDto): Promise<MatchGoal> {
+    if (!dto.playerId) throw new BadRequestException('playerId é obrigatório.');
+    if (!dto.teamId)   throw new BadRequestException('teamId é obrigatório.');
+
     const match  = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
     const player = await this.playerRepo.findOne({ where: { id: dto.playerId } });
-    if (!player) throw new NotFoundException('Jogador não encontrado.');
+    if (!player) throw new NotFoundException(`Jogador ${dto.playerId} não encontrado.`);
 
     const goal = await this.matchGoalRepo.save(
       this.matchGoalRepo.create({ matchId, playerId: dto.playerId, teamId: dto.teamId }),
