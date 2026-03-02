@@ -71,6 +71,12 @@ export class BulkImportPlayersDto {
   lines: string[];
 }
 
+/** Adiciona um evento de gol a uma partida */
+export class AddGoalDto {
+  playerId: number;
+  teamId: number;
+}
+
 /** Atualiza dados básicos do jogador — todos os campos são opcionais */
 export class UpdatePlayerDto {
   name?: string;

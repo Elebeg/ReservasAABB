@@ -16,6 +16,7 @@ import {
   BulkImportPlayersDto,
   UpdatePlayerDto,
   UpdatePlayerStatsDto,
+  AddGoalDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -117,6 +118,27 @@ export class ChampionshipController {
   @HttpCode(HttpStatus.OK)
   deleteResult(@Param('matchId') matchId: string) {
     return this.service.deleteResult(Number(matchId));
+  }
+
+  // ─── MATCH GOALS ──────────────────────────────────────────────────────────
+
+  /** Lista os eventos de gol salvos de uma partida */
+  @Get('matches/:matchId/goals')
+  getMatchGoals(@Param('matchId') matchId: string) {
+    return this.service.getMatchGoals(Number(matchId));
+  }
+
+  /** Salva um evento de gol — se partida já finalizada, incrementa stat imediatamente */
+  @Post('matches/:matchId/goals')
+  addGoal(@Param('matchId') matchId: string, @Body() dto: AddGoalDto) {
+    return this.service.addGoal(Number(matchId), dto);
+  }
+
+  /** Remove um evento de gol — se partida já finalizada, decrementa stat imediatamente */
+  @Delete('matches/:matchId/goals/:goalId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeGoal(@Param('matchId') matchId: string, @Param('goalId') goalId: string) {
+    return this.service.removeGoal(Number(matchId), Number(goalId));
   }
 
   /** Define (ou remove) a data/hora agendada de uma partida */

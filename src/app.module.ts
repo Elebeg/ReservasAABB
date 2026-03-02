@@ -17,6 +17,7 @@ import { TournamentGroup } from './championship/entities/tournament-group.entity
 import { GroupStanding } from './championship/entities/group-standing.entity';
 import { Match } from './championship/entities/match.entity';
 import { Player } from './championship/entities/player.entity';
+import { MatchGoal } from './championship/entities/match-goal.entity';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { Player } from './championship/entities/player.entity';
       //database: process.env.DATABASE_NAME || 'beachtennis',
       // --- PRODUÇÃO (substituir bloco acima pelo abaixo) ---
       url: process.env.DATABASE_URL,
-      entities: [User, Court, Reservation, Tournament, Team, TournamentGroup, GroupStanding, Match, Player],
+      entities: [User, Court, Reservation, Tournament, Team, TournamentGroup, GroupStanding, Match, Player, MatchGoal],
       synchronize: true,
     }),
     UsersModule,

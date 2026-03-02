@@ -11,11 +11,12 @@ import { TournamentGroup } from './entities/tournament-group.entity';
 import { GroupStanding } from './entities/group-standing.entity';
 import { Match } from './entities/match.entity';
 import { Player } from './entities/player.entity';
+import { MatchGoal } from './entities/match-goal.entity';
 import { AdminAuthGuard } from '../admin/admin-auth.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tournament, Team, TournamentGroup, GroupStanding, Match, Player]),
+    TypeOrmModule.forFeature([Tournament, Team, TournamentGroup, GroupStanding, Match, Player, MatchGoal]),
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

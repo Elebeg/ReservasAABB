@@ -11,6 +11,7 @@ import { TournamentGroup } from './entities/tournament-group.entity';
 import { GroupStanding } from './entities/group-standing.entity';
 import { Match, MatchPhase, MatchStatus } from './entities/match.entity';
 import { Player, PlayerPosition } from './entities/player.entity';
+import { MatchGoal } from './entities/match-goal.entity';
 import {
   CreateTournamentDto,
   AddTeamDto,
@@ -23,6 +24,7 @@ import {
   BulkImportPlayersDto,
   UpdatePlayerDto,
   UpdatePlayerStatsDto,
+  AddGoalDto,
 } from './dto/championship.dto';
 
 @Injectable()
@@ -34,6 +36,7 @@ export class ChampionshipService {
     @InjectRepository(GroupStanding)   private standingRepo: Repository<GroupStanding>,
     @InjectRepository(Match)           private matchRepo: Repository<Match>,
     @InjectRepository(Player)          private playerRepo: Repository<Player>,
+    @InjectRepository(MatchGoal)       private matchGoalRepo: Repository<MatchGoal>,
     private dataSource: DataSource,
   ) {}
 
@@ -197,6 +200,56 @@ export class ChampionshipService {
     });
   }
 
+  // ─── MATCH GOALS ──────────────────────────────────────────────────────────
+
+  async getMatchGoals(matchId: number): Promise<MatchGoal[]> {
+    return this.matchGoalRepo.find({
+      where: { matchId },
+      relations: ['player', 'team'],
+      order: { id: 'ASC' },
+    });
+  }
+
+  async addGoal(matchId: number, dto: AddGoalDto): Promise<MatchGoal> {
+    const match  = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+    const player = await this.playerRepo.findOne({ where: { id: dto.playerId } });
+    if (!player) throw new NotFoundException('Jogador não encontrado.');
+
+    const goal = await this.matchGoalRepo.save(
+      this.matchGoalRepo.create({ matchId, playerId: dto.playerId, teamId: dto.teamId }),
+    );
+
+    // Se a partida já está finalizada, incrementa imediatamente
+    if (match.status === MatchStatus.FINISHED) {
+      player.goals = Math.max(0, player.goals + 1);
+      await this.playerRepo.save(player);
+    }
+
+    return this.matchGoalRepo.findOne({
+      where: { id: goal.id },
+      relations: ['player', 'team'],
+    }) as Promise<MatchGoal>;
+  }
+
+  async removeGoal(matchId: number, goalId: number): Promise<void> {
+    const goal = await this.matchGoalRepo.findOne({ where: { id: goalId, matchId } });
+    if (!goal) throw new NotFoundException('Evento de gol não encontrado.');
+
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+
+    // Se a partida já está finalizada, decrementa imediatamente
+    if (match?.status === MatchStatus.FINISHED) {
+      const player = await this.playerRepo.findOne({ where: { id: goal.playerId } });
+      if (player) {
+        player.goals = Math.max(0, player.goals - 1);
+        await this.playerRepo.save(player);
+      }
+    }
+
+    await this.matchGoalRepo.delete(goalId);
+  }
+
   // ─── RECORD RESULT ────────────────────────────────────────────────────────
 
   async recordResult(matchId: number, dto: RecordResultDto): Promise<Match | null> {
@@ -216,6 +269,9 @@ export class ChampionshipService {
     match.status        = MatchStatus.FINISHED;
 
     await this.matchRepo.save(match);
+
+    // Aplica gols dos jogadores a partir dos eventos salvos
+    await this._applyGoalStats(matchId, 1);
 
     if (match.phase === MatchPhase.GROUP) {
       await this._updateGroupStanding(match);
@@ -255,6 +311,9 @@ export class ChampionshipService {
     if (match.phase === MatchPhase.GROUP) {
       await this._revertGroupStanding(match, match.homeScore!, match.awayScore!);
     }
+
+    // Reverte gols dos jogadores
+    await this._applyGoalStats(matchId, -1);
 
     match.homeScore     = null;
     match.awayScore     = null;
@@ -595,6 +654,25 @@ export class ChampionshipService {
   }
 
   // ─── PRIVATE HELPERS ──────────────────────────────────────────────────────
+
+  /**
+   * Agrupa os gols salvos por jogador e aplica delta (+1 ao salvar, -1 ao cancelar).
+   * Nunca deixa player.goals ficar negativo.
+   */
+  private async _applyGoalStats(matchId: number, delta: 1 | -1): Promise<void> {
+    const goals = await this.matchGoalRepo.find({ where: { matchId } });
+    const countByPlayer = new Map<number, number>();
+    for (const g of goals) {
+      countByPlayer.set(g.playerId, (countByPlayer.get(g.playerId) ?? 0) + 1);
+    }
+    for (const [playerId, count] of countByPlayer) {
+      const player = await this.playerRepo.findOne({ where: { id: playerId } });
+      if (player) {
+        player.goals = Math.max(0, player.goals + delta * count);
+        await this.playerRepo.save(player);
+      }
+    }
+  }
 
   private async _findTournament(id: number, withRelations = false): Promise<Tournament> {
     const t = await this.tournamentRepo.findOne({
