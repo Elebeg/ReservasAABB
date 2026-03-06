@@ -12,6 +12,7 @@ import { GroupStanding } from './entities/group-standing.entity';
 import { Match, MatchPhase, MatchStatus } from './entities/match.entity';
 import { Player, PlayerPosition } from './entities/player.entity';
 import { MatchGoal } from './entities/match-goal.entity';
+import { MatchCard } from './entities/match-card.entity';
 import {
   CreateTournamentDto,
   AddTeamDto,
@@ -25,6 +26,7 @@ import {
   UpdatePlayerDto,
   UpdatePlayerStatsDto,
   AddGoalDto,
+  AddMatchCardDto,
 } from './dto/championship.dto';
 
 @Injectable()
@@ -37,6 +39,7 @@ export class ChampionshipService {
     @InjectRepository(Match)           private matchRepo: Repository<Match>,
     @InjectRepository(Player)          private playerRepo: Repository<Player>,
     @InjectRepository(MatchGoal)       private matchGoalRepo: Repository<MatchGoal>,
+    @InjectRepository(MatchCard)       private matchCardRepo: Repository<MatchCard>,
     private dataSource: DataSource,
   ) {}
 
@@ -280,8 +283,9 @@ export class ChampionshipService {
 
     await this.matchRepo.save(match);
 
-    // Aplica gols dos jogadores a partir dos eventos salvos
+    // Aplica gols e cartões dos jogadores a partir dos eventos salvos
     await this._applyGoalStats(matchId, 1);
+    await this._applyCardStats(matchId, 1);
 
     if (match.phase === MatchPhase.GROUP) {
       await this._updateGroupStanding(match);
@@ -322,8 +326,9 @@ export class ChampionshipService {
       await this._revertGroupStanding(match, match.homeScore!, match.awayScore!);
     }
 
-    // Reverte gols dos jogadores
+    // Reverte gols e cartões dos jogadores
     await this._applyGoalStats(matchId, -1);
+    await this._applyCardStats(matchId, -1);
 
     match.homeScore     = null;
     match.awayScore     = null;
@@ -679,6 +684,79 @@ export class ChampionshipService {
       const player = await this.playerRepo.findOne({ where: { id: playerId } });
       if (player) {
         player.goals = Math.max(0, player.goals + delta * count);
+        await this.playerRepo.save(player);
+      }
+    }
+  }
+
+  // ─── MATCH CARDS ──────────────────────────────────────────────────────────
+
+  async getMatchCards(matchId: number): Promise<MatchCard[]> {
+    return this.matchCardRepo.find({
+      where: { matchId },
+      relations: ['player', 'team'],
+      order: { id: 'ASC' },
+    });
+  }
+
+  async addMatchCard(matchId: number, dto: AddMatchCardDto): Promise<MatchCard> {
+    const match  = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+    const player = await this.playerRepo.findOne({ where: { id: dto.playerId } });
+    if (!player) throw new NotFoundException(`Jogador ${dto.playerId} não encontrado.`);
+
+    const card = await this.matchCardRepo.save(
+      this.matchCardRepo.create({ matchId, playerId: dto.playerId, teamId: dto.teamId, type: dto.type }),
+    );
+
+    // Se partida já finalizada, aplica stat imediatamente
+    if (match.status === MatchStatus.FINISHED) {
+      const stat = dto.type === 'YELLOW' ? 'yellowCards' : 'redCards';
+      player[stat] = Math.max(0, player[stat] + 1);
+      await this.playerRepo.save(player);
+    }
+
+    return this.matchCardRepo.findOne({
+      where: { id: card.id },
+      relations: ['player', 'team'],
+    }) as Promise<MatchCard>;
+  }
+
+  async removeMatchCard(matchId: number, cardId: number): Promise<void> {
+    const card = await this.matchCardRepo.findOne({ where: { id: cardId, matchId } });
+    if (!card) throw new NotFoundException('Evento de cartão não encontrado.');
+
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+
+    // Se partida já finalizada, decrementa stat imediatamente
+    if (match?.status === MatchStatus.FINISHED) {
+      const player = await this.playerRepo.findOne({ where: { id: card.playerId } });
+      if (player) {
+        const stat = card.type === 'YELLOW' ? 'yellowCards' : 'redCards';
+        player[stat] = Math.max(0, player[stat] - 1);
+        await this.playerRepo.save(player);
+      }
+    }
+
+    await this.matchCardRepo.delete(cardId);
+  }
+
+  /**
+   * Agrupa os cartões por jogador/tipo e aplica delta (+1 ao salvar, -1 ao cancelar).
+   */
+  private async _applyCardStats(matchId: number, delta: 1 | -1): Promise<void> {
+    const cards = await this.matchCardRepo.find({ where: { matchId } });
+    const countByPlayerStat = new Map<string, number>();
+    for (const c of cards) {
+      const key = `${c.playerId}:${c.type}`;
+      countByPlayerStat.set(key, (countByPlayerStat.get(key) ?? 0) + 1);
+    }
+    for (const [key, count] of countByPlayerStat) {
+      const [playerIdStr, type] = key.split(':');
+      const player = await this.playerRepo.findOne({ where: { id: Number(playerIdStr) } });
+      if (player) {
+        const stat = type === 'YELLOW' ? 'yellowCards' : 'redCards';
+        player[stat] = Math.max(0, player[stat] + delta * count);
         await this.playerRepo.save(player);
       }
     }

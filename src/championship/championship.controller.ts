@@ -18,6 +18,7 @@ import {
   UpdatePlayerDto,
   UpdatePlayerStatsDto,
   AddGoalDto,
+  AddMatchCardDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -155,6 +156,24 @@ export class ChampionshipController {
   @Patch('matches/:matchId/schedule')
   scheduleMatch(@Param('matchId') matchId: string, @Body() dto: ScheduleMatchDto) {
     return this.service.scheduleMatch(Number(matchId), dto);
+  }
+
+  // ─── MATCH CARDS ──────────────────────────────────────────────────────────
+
+  @Get('matches/:matchId/cards')
+  getMatchCards(@Param('matchId') matchId: string) {
+    return this.service.getMatchCards(Number(matchId));
+  }
+
+  @Post('matches/:matchId/cards')
+  addMatchCard(@Param('matchId') matchId: string, @Body() dto: AddMatchCardDto) {
+    return this.service.addMatchCard(Number(matchId), dto);
+  }
+
+  @Delete('matches/:matchId/cards/:cardId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeMatchCard(@Param('matchId') matchId: string, @Param('cardId') cardId: string) {
+    return this.service.removeMatchCard(Number(matchId), Number(cardId));
   }
 
   // ─── STANDINGS & BRACKET ──────────────────────────────────────────────────

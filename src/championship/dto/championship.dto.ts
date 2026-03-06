@@ -81,6 +81,13 @@ export class AddGoalDto {
   teamId: number;
 }
 
+/** Adiciona um evento de cartão a uma partida */
+export class AddMatchCardDto {
+  playerId: number;
+  teamId: number;
+  type: 'YELLOW' | 'RED';
+}
+
 /** Atualiza dados básicos do jogador — todos os campos são opcionais */
 export class UpdatePlayerDto {
   name?: string;
