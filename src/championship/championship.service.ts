@@ -105,6 +105,13 @@ export class ChampionshipService {
     return this.teamRepo.save(team);
   }
 
+  async updateTeamLogo(tournamentId: number, teamId: number, logoUrl: string | null): Promise<Team> {
+    const team = await this.teamRepo.findOne({ where: { id: teamId, tournamentId } });
+    if (!team) throw new NotFoundException('Time não encontrado.');
+    team.logoUrl = logoUrl;
+    return this.teamRepo.save(team);
+  }
+
   async removeTeam(tournamentId: number, teamId: number): Promise<void> {
     const team = await this.teamRepo.findOne({ where: { id: teamId, tournamentId } });
     if (!team) throw new NotFoundException('Time não encontrado.');

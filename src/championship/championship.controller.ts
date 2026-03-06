@@ -7,6 +7,7 @@ import { AdminAuthGuard } from '../admin/admin-auth.guard';
 import {
   CreateTournamentDto,
   AddTeamDto,
+  UpdateTeamLogoDto,
   RecordResultDto,
   UpdateResultDto,
   AssignGroupsDto,
@@ -64,6 +65,15 @@ export class ChampionshipController {
   @Get('tournaments/:id/teams')
   listTeams(@Param('id') id: string) {
     return this.service.listTeams(Number(id));
+  }
+
+  @Patch('tournaments/:id/teams/:teamId/logo')
+  updateTeamLogo(
+    @Param('id') id: string,
+    @Param('teamId') teamId: string,
+    @Body() dto: UpdateTeamLogoDto,
+  ) {
+    return this.service.updateTeamLogo(Number(id), Number(teamId), dto.logoUrl);
   }
 
   @Delete('tournaments/:id/teams/:teamId')

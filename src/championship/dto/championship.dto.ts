@@ -15,6 +15,10 @@ export class AddTeamDto {
   logoUrl?: string;
 }
 
+export class UpdateTeamLogoDto {
+  logoUrl: string | null;
+}
+
 export class RecordResultDto {
   homeScore: number;
   awayScore: number;
