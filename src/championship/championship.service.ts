@@ -515,9 +515,14 @@ export class ChampionshipService {
       cardMap.set(p.teamId, { yellow: cur.yellow + p.yellowCards, red: cur.red + p.redCards });
     }
 
+    // Carrega partidas de grupo finalizadas para confronto direto
+    const groupMatches = await this.matchRepo.find({
+      where: { tournamentId, phase: MatchPhase.GROUP, status: MatchStatus.FINISHED },
+    });
+
     return groups.map((g) => ({
       group:     g.name,
-      standings: this._sortStandings(g.standings, cardMap).map((s, i) => ({
+      standings: this._sortStandings(g.standings, cardMap, groupMatches).map((s, i) => ({
         position:      i + 1,
         team:          s.team.name,
         teamLogo:      s.team.logoUrl ?? null,
@@ -680,7 +685,8 @@ export class ChampionshipService {
     for (const g of goals) {
       countByPlayer.set(g.playerId, (countByPlayer.get(g.playerId) ?? 0) + 1);
     }
-    for (const [playerId, count] of countByPlayer) {
+    const entries = Array.from(countByPlayer.entries());
+    for (const [playerId, count] of entries) {
       const player = await this.playerRepo.findOne({ where: { id: playerId } });
       if (player) {
         player.goals = Math.max(0, player.goals + delta * count);
@@ -751,7 +757,8 @@ export class ChampionshipService {
       const key = `${c.playerId}:${c.type}`;
       countByPlayerStat.set(key, (countByPlayerStat.get(key) ?? 0) + 1);
     }
-    for (const [key, count] of countByPlayerStat) {
+    const entries = Array.from(countByPlayerStat.entries());
+    for (const [key, count] of entries) {
       const [playerIdStr, type] = key.split(':');
       const player = await this.playerRepo.findOne({ where: { id: Number(playerIdStr) } });
       if (player) {
@@ -983,22 +990,95 @@ export class ChampionshipService {
   }
 
   /** Ordena classificação: pontos > saldo > gols pró */
-  private _sortStandings(standings: GroupStanding[], cardMap?: Map<number, { yellow: number; red: number }>): GroupStanding[] {
+  /**
+   * Ordena standings com os seguintes critérios de desempate (em ordem):
+   * 1. Pontos
+   * 2. Defesa menos vazada (goalsAgainst ↓)
+   * 3. Saldo de gols (goalsFor - goalsAgainst ↑)
+   * 4. Menos cartões (amarelo + vermelho×2 ↓)
+   * 5. Confronto direto — pontos H2H, depois saldo H2H
+   * 6. Mais gols marcados (goalsFor ↑)
+   * 7. Mais vitórias (wins ↑)
+   * 8. Ordem alfabética (determinístico)
+   */
+  private _sortStandings(
+    standings: GroupStanding[],
+    cardMap?: Map<number, { yellow: number; red: number }>,
+    matches?: Match[],
+  ): GroupStanding[] {
+    const h2hMap = matches ? this._buildH2HMap(matches) : null;
+
     return [...standings].sort((a, b) => {
+      // 1. Pontos
       if (b.points !== a.points) return b.points - a.points;
-      if (b.wins   !== a.wins)   return b.wins - a.wins;
+
+      // 2. Defesa menos vazada
+      if (a.goalsAgainst !== b.goalsAgainst) return a.goalsAgainst - b.goalsAgainst;
+
+      // 3. Saldo de gols
       const diffA = a.goalsFor - a.goalsAgainst;
       const diffB = b.goalsFor - b.goalsAgainst;
       if (diffB !== diffA) return diffB - diffA;
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+
+      // 4. Menos cartões (amarelo + vermelho×2)
       if (cardMap) {
         const cA = cardMap.get(a.teamId) ?? { yellow: 0, red: 0 };
         const cB = cardMap.get(b.teamId) ?? { yellow: 0, red: 0 };
-        if (cA.red !== cB.red) return cA.red - cB.red;
-        if (cA.yellow !== cB.yellow) return cA.yellow - cB.yellow;
+        const wA = cA.yellow + cA.red * 2;
+        const wB = cB.yellow + cB.red * 2;
+        if (wA !== wB) return wA - wB;
       }
-      return 0;
+
+      // 5. Confronto direto (pontos H2H → saldo H2H)
+      if (h2hMap) {
+        const h2hA = h2hMap.get(`${a.teamId}:${b.teamId}`) ?? { points: 0, goalsFor: 0, goalsAgainst: 0 };
+        const h2hB = h2hMap.get(`${b.teamId}:${a.teamId}`) ?? { points: 0, goalsFor: 0, goalsAgainst: 0 };
+        if (h2hA.points !== h2hB.points) return h2hB.points - h2hA.points;
+        const h2hDiffA = h2hA.goalsFor - h2hA.goalsAgainst;
+        const h2hDiffB = h2hB.goalsFor - h2hB.goalsAgainst;
+        if (h2hDiffA !== h2hDiffB) return h2hDiffB - h2hDiffA;
+      }
+
+      // 6. Mais gols marcados
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+
+      // 7. Mais vitórias
+      if (b.wins !== a.wins) return b.wins - a.wins;
+
+      // 8. Ordem alfabética
+      return (a.team?.name ?? '').localeCompare(b.team?.name ?? '');
     });
+  }
+
+  /**
+   * Constrói mapa de confronto direto a partir das partidas finalizadas.
+   * Chave: `${teamAId}:${teamBId}` → { points, goalsFor, goalsAgainst } de teamA contra teamB.
+   */
+  private _buildH2HMap(matches: Match[]): Map<string, { points: number; goalsFor: number; goalsAgainst: number }> {
+    const map = new Map<string, { points: number; goalsFor: number; goalsAgainst: number }>();
+    const init = () => ({ points: 0, goalsFor: 0, goalsAgainst: 0 });
+
+    for (const m of matches) {
+      if (m.homeScore === null || m.awayScore === null || !m.homeTeamId || !m.awayTeamId) continue;
+
+      const keyH = `${m.homeTeamId}:${m.awayTeamId}`;
+      const keyA = `${m.awayTeamId}:${m.homeTeamId}`;
+      const home = map.get(keyH) ?? init();
+      const away = map.get(keyA) ?? init();
+
+      home.goalsFor      += m.homeScore;
+      home.goalsAgainst  += m.awayScore;
+      away.goalsFor      += m.awayScore;
+      away.goalsAgainst  += m.homeScore;
+
+      if (m.homeScore > m.awayScore)       { home.points += 3; }
+      else if (m.homeScore === m.awayScore) { home.points += 1; away.points += 1; }
+      else                                  { away.points += 3; }
+
+      map.set(keyH, home);
+      map.set(keyA, away);
+    }
+    return map;
   }
 
   /** Seeding: distribui times em pares para o bracket */
