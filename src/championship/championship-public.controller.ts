@@ -16,6 +16,12 @@ export class ChampionshipPublicController {
     return this.service.getActiveTournament();
   }
 
+  /** Todos os dados do torneio ativo em uma única chamada (otimização de performance) */
+  @Get('active/all')
+  getActiveFull() {
+    return this.service.getActiveFull();
+  }
+
   /** Tabela de classificação do torneio ativo */
   @Get('active/standings')
   async getActiveStandings() {

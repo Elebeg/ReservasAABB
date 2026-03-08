@@ -97,6 +97,40 @@ export class ChampionshipService {
     return tournament;
   }
 
+  /**
+   * Retorna torneio + standings + bracket + partidas + jogadores em uma única chamada.
+   * Usado pelo frontend para evitar 5 round-trips separados.
+   */
+  async getActiveFull() {
+    const tournament = await this.getActiveTournament();
+    const id = tournament.id;
+
+    const [standings, bracket, matches, players] = await Promise.all([
+      this.getStandings(id).catch(() => []),
+      this.getBracket(id).catch(() => null),
+      this.getMatches(id).catch(() => []),
+      this.listAllPlayers(id).catch(() => []),
+    ]);
+
+    return {
+      tournament: {
+        id:              tournament.id,
+        name:            tournament.name,
+        description:     tournament.description ?? null,
+        format:          tournament.format,
+        status:          tournament.status,
+        teamsAdvancing:  tournament.teamsAdvancing,
+        startDate:       tournament.startDate ?? null,
+        createdAt:       tournament.createdAt,
+        active:          tournament.active,
+      },
+      standings,
+      bracket,
+      matches,
+      players,
+    };
+  }
+
   // ─── TEAMS ────────────────────────────────────────────────────────────────
 
   async addTeam(tournamentId: number, dto: AddTeamDto): Promise<Team> {
