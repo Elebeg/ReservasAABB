@@ -27,6 +27,10 @@ export class Player {
   @Column({ type: 'enum', enum: PlayerPosition, nullable: true })
   position: PlayerPosition | null;
 
+  /** Data de nascimento — opcional; usada para cálculo de veterano (≥ 40 anos no ano do campeonato) */
+  @Column({ type: 'date', nullable: true })
+  birthDate: Date | null;
+
   // ─── Estatísticas acumuladas ───────────────────────────────────────────
   @Column({ default: 0 }) goals:        number;
   @Column({ default: 0 }) yellowCards:  number;

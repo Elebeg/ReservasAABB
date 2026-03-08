@@ -682,9 +682,10 @@ export class ChampionshipService {
   async updatePlayer(playerId: number, dto: UpdatePlayerDto): Promise<Player> {
     const player = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!player) throw new NotFoundException('Jogador não encontrado.');
-    if (dto.name     !== undefined) player.name     = dto.name;
-    if (dto.number   !== undefined) player.number   = dto.number;
-    if (dto.position !== undefined) player.position = dto.position;
+    if (dto.name      !== undefined) player.name      = dto.name;
+    if (dto.number    !== undefined) player.number    = dto.number;
+    if (dto.position  !== undefined) player.position  = dto.position;
+    if (dto.birthDate !== undefined) player.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
     return this.playerRepo.save(player);
   }
 

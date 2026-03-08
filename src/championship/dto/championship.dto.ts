@@ -99,6 +99,7 @@ export class UpdatePlayerDto {
   name?: string;
   number?: number | null;
   position?: PlayerPosition | null;
+  birthDate?: string | null;  // ISO date string "YYYY-MM-DD" ou null para limpar
 }
 
 /** Atualiza estatísticas de um jogador (gols, cartões) */
