@@ -18,6 +18,7 @@ import {
   UpdatePlayerDto,
   UpdatePlayerStatsDto,
   AddGoalDto,
+  PatchGoalDto,
   AddMatchCardDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
@@ -143,6 +144,16 @@ export class ChampionshipController {
   @Post('matches/:matchId/goals')
   addGoal(@Param('matchId') matchId: string, @Body() dto: AddGoalDto) {
     return this.service.addGoal(Number(matchId), dto);
+  }
+
+  /** Atualiza o jogador marcador de um gol já existente */
+  @Patch('matches/:matchId/goals/:goalId')
+  patchGoal(
+    @Param('matchId') matchId: string,
+    @Param('goalId') goalId: string,
+    @Body() dto: PatchGoalDto,
+  ) {
+    return this.service.patchGoal(Number(matchId), Number(goalId), dto.playerId);
   }
 
   /** Remove um evento de gol — se partida já finalizada, decrementa stat imediatamente */

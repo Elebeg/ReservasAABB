@@ -254,6 +254,34 @@ export class ChampionshipService {
     }) as Promise<MatchGoal>;
   }
 
+  async patchGoal(matchId: number, goalId: number, playerId: number | null): Promise<MatchGoal> {
+    const goal = await this.matchGoalRepo.findOne({ where: { id: goalId, matchId } });
+    if (!goal) throw new NotFoundException('Evento de gol não encontrado.');
+    if (goal.ownGoal) throw new BadRequestException('Gol contra não pode ter jogador atribuído.');
+
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+
+    // Se partida finalizada: ajusta stats do jogador anterior e do novo
+    if (match?.status === MatchStatus.FINISHED) {
+      if (goal.playerId) {
+        const prev = await this.playerRepo.findOne({ where: { id: goal.playerId } });
+        if (prev) { prev.goals = Math.max(0, prev.goals - 1); await this.playerRepo.save(prev); }
+      }
+      if (playerId) {
+        const next = await this.playerRepo.findOne({ where: { id: playerId } });
+        if (next) { next.goals = Math.max(0, next.goals + 1); await this.playerRepo.save(next); }
+      }
+    }
+
+    goal.playerId = playerId;
+    await this.matchGoalRepo.save(goal);
+
+    return this.matchGoalRepo.findOne({
+      where: { id: goal.id },
+      relations: ['player', 'team'],
+    }) as Promise<MatchGoal>;
+  }
+
   async removeGoal(matchId: number, goalId: number): Promise<void> {
     const goal = await this.matchGoalRepo.findOne({ where: { id: goalId, matchId } });
     if (!goal) throw new NotFoundException('Evento de gol não encontrado.');

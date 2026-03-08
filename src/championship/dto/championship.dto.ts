@@ -82,6 +82,11 @@ export class AddGoalDto {
   ownGoal?: boolean;
 }
 
+/** Atualiza o jogador marcador de um gol já existente */
+export class PatchGoalDto {
+  playerId: number | null;
+}
+
 /** Adiciona um evento de cartão a uma partida */
 export class AddMatchCardDto {
   playerId: number;
