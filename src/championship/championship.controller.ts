@@ -270,6 +270,13 @@ export class ChampionshipController {
     return this.service.removePlayer(Number(playerId));
   }
 
+  /** Limpa manualmente a suspensão de um jogador (override do admin) */
+  @Patch('players/:playerId/suspension/clear')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  clearPlayerSuspension(@Param('playerId') playerId: string) {
+    return this.service.clearPlayerSuspension(Number(playerId));
+  }
+
   /** Atualiza estatísticas completas de um jogador */
   @Patch('players/:playerId/stats')
   updatePlayerStats(@Param('playerId') playerId: string, @Body() dto: UpdatePlayerStatsDto) {

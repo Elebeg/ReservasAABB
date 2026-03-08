@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Tournament, TournamentFormat, TournamentStatus } from './entities/tournament.entity';
 import { Team } from './entities/team.entity';
 import { TournamentGroup } from './entities/tournament-group.entity';
@@ -320,7 +320,8 @@ export class ChampionshipService {
 
     await this.matchRepo.save(match);
 
-    // Aplica gols e cartões dos jogadores a partir dos eventos salvos
+    // Limpa suspensões cumpridas nesta partida, depois aplica stats e novas suspensões
+    await this._clearServedSuspensions(matchId);
     await this._applyGoalStats(matchId, 1);
     await this._applyCardStats(matchId, 1);
 
@@ -472,6 +473,9 @@ export class ChampionshipService {
 
     // update() direto evita cascade das relações em memória
     await this.tournamentRepo.update(tournamentId, { status: TournamentStatus.KNOCKOUT_STAGE });
+
+    // Zera acumulação de amarelos ao entrar no mata-mata (suspensões ativas são mantidas)
+    await this.playerRepo.update({ tournamentId }, { yellowCardAccum: 0 });
 
     return knockoutMatches;
   }
@@ -747,6 +751,15 @@ export class ChampionshipService {
     return this.playerRepo.save(player);
   }
 
+  /** Limpa manualmente a suspensão de um jogador (override do admin) */
+  async clearPlayerSuspension(playerId: number): Promise<Player> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) throw new NotFoundException('Jogador não encontrado.');
+    player.suspended = false;
+    player.yellowCardAccum = 0;
+    return this.playerRepo.save(player);
+  }
+
   // ─── PRIVATE HELPERS ──────────────────────────────────────────────────────
 
   /**
@@ -790,10 +803,20 @@ export class ChampionshipService {
       this.matchCardRepo.create({ matchId, playerId: dto.playerId, teamId: dto.teamId, type: dto.type }),
     );
 
-    // Se partida já finalizada, aplica stat imediatamente
+    // Se partida já finalizada, aplica stat e suspensão imediatamente
     if (match.status === MatchStatus.FINISHED) {
       const stat = dto.type === 'YELLOW' ? 'yellowCards' : 'redCards';
       player[stat] = Math.max(0, player[stat] + 1);
+
+      if (dto.type === 'RED') {
+        player.suspended = true;
+      } else {
+        player.yellowCardAccum += 1;
+        if (player.yellowCardAccum >= 2) {
+          player.suspended = true;
+          player.yellowCardAccum = 0;
+        }
+      }
       await this.playerRepo.save(player);
     }
 
@@ -824,24 +847,60 @@ export class ChampionshipService {
 
   /**
    * Agrupa os cartões por jogador/tipo e aplica delta (+1 ao salvar, -1 ao cancelar).
+   * Quando delta=1 também calcula suspensão (pendurado / suspenso).
    */
   private async _applyCardStats(matchId: number, delta: 1 | -1): Promise<void> {
     const cards = await this.matchCardRepo.find({ where: { matchId } });
-    const countByPlayerStat = new Map<string, number>();
+
+    // Conta yellows e reds por jogador
+    const yellowsMap = new Map<number, number>();
+    const redsMap    = new Map<number, number>();
     for (const c of cards) {
-      const key = `${c.playerId}:${c.type}`;
-      countByPlayerStat.set(key, (countByPlayerStat.get(key) ?? 0) + 1);
+      if (c.type === 'YELLOW') yellowsMap.set(c.playerId, (yellowsMap.get(c.playerId) ?? 0) + 1);
+      else                     redsMap.set(c.playerId,    (redsMap.get(c.playerId)    ?? 0) + 1);
     }
-    const entries = Array.from(countByPlayerStat.entries());
-    for (const [key, count] of entries) {
-      const [playerIdStr, type] = key.split(':');
-      const player = await this.playerRepo.findOne({ where: { id: Number(playerIdStr) } });
-      if (player) {
-        const stat = type === 'YELLOW' ? 'yellowCards' : 'redCards';
-        player[stat] = Math.max(0, player[stat] + delta * count);
-        await this.playerRepo.save(player);
+
+    const allIds = new Set([...yellowsMap.keys(), ...redsMap.keys()]);
+
+    for (const playerId of allIds) {
+      const player = await this.playerRepo.findOne({ where: { id: playerId } });
+      if (!player) continue;
+
+      const yellows = yellowsMap.get(playerId) ?? 0;
+      const reds    = redsMap.get(playerId)    ?? 0;
+
+      player.yellowCards = Math.max(0, player.yellowCards + delta * yellows);
+      player.redCards    = Math.max(0, player.redCards    + delta * reds);
+
+      // Lógica de suspensão — só aplicada ao finalizar (delta=1)
+      if (delta === 1) {
+        if (reds > 0) {
+          player.suspended = true; // vermelho → suspenso; não afeta yellowCardAccum
+        }
+        player.yellowCardAccum += yellows;
+        if (player.yellowCardAccum >= 2) {
+          player.suspended = true;
+          player.yellowCardAccum = 0; // reset do ciclo — contagem recomeça
+        }
       }
+
+      await this.playerRepo.save(player);
     }
+  }
+
+  /**
+   * Limpa a suspensão dos jogadores das duas equipes desta partida
+   * (eles cumpriram a suspensão nesta rodada).
+   * Deve ser chamado ANTES de _applyCardStats para que novas suspensões
+   * ganhas nesta partida não sejam apagadas.
+   */
+  private async _clearServedSuspensions(matchId: number): Promise<void> {
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match?.homeTeamId || !match?.awayTeamId) return;
+    await this.playerRepo.update(
+      { teamId: In([match.homeTeamId, match.awayTeamId]), suspended: true },
+      { suspended: false },
+    );
   }
 
   private async _findTournament(id: number, withRelations = false): Promise<Tournament> {

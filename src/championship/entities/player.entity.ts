@@ -36,6 +36,15 @@ export class Player {
   @Column({ default: 0 }) yellowCards:  number;
   @Column({ default: 0 }) redCards:     number;
 
+  // ─── Suspensão ────────────────────────────────────────────────────────
+  /** Amarelos acumulados no ciclo atual (0 = limpo, 1 = pendurado; reseta após suspensão ou mudança de fase) */
+  @Column({ default: 0 })
+  yellowCardAccum: number;
+
+  /** Suspenso para a próxima partida (vermelho ou 2º amarelo no ciclo) */
+  @Column({ default: false })
+  suspended: boolean;
+
   // ─── Relações ────────────────────────────────────────────────────────────
   @ManyToOne(() => Team, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'teamId' })
