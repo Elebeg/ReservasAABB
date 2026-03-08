@@ -87,6 +87,11 @@ export class PatchGoalDto {
   playerId: number | null;
 }
 
+/** Upload (ou remoção) da súmula digitalizada de uma partida */
+export class UploadSumulaDto {
+  sumulaUrl: string | null;
+}
+
 /** Adiciona um evento de cartão a uma partida */
 export class AddMatchCardDto {
   playerId: number;

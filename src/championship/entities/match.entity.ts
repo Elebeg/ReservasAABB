@@ -83,4 +83,8 @@ export class Match {
   // Em qual slot da próxima partida o vencedor entra ('home' | 'away')
   @Column({ type: 'varchar', nullable: true })
   nextMatchSlot: string | null;
+
+  // URL (ou base64) da súmula digitalizada
+  @Column({ type: 'text', nullable: true })
+  sumulaUrl: string | null;
 }

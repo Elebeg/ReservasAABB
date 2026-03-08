@@ -594,7 +594,43 @@ export class ChampionshipService {
       awayScore:      m.awayScore,
       homePenalties:  m.homePenalties,
       awayPenalties:  m.awayPenalties,
+      hasSumula:      !!m.sumulaUrl,
     }));
+  }
+
+  async getMatchDetail(matchId: number) {
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+
+    const [goals, cards] = await Promise.all([
+      this.matchGoalRepo.find({ where: { matchId }, relations: ['player', 'team'], order: { id: 'ASC' } }),
+      this.matchCardRepo.find({ where: { matchId }, relations: ['player', 'team'], order: { id: 'ASC' } }),
+    ]);
+
+    return {
+      sumulaUrl: match.sumulaUrl ?? null,
+      goals: goals.map(g => ({
+        id:       g.id,
+        teamId:   g.teamId,
+        teamName: g.team?.name ?? null,
+        player:   g.player ? { id: g.player.id, name: g.player.name, number: g.player.number } : null,
+        ownGoal:  g.ownGoal,
+      })),
+      cards: cards.map(c => ({
+        id:       c.id,
+        teamId:   c.teamId,
+        teamName: c.team?.name ?? null,
+        type:     c.type,
+        player:   c.player ? { id: c.player.id, name: c.player.name, number: c.player.number } : null,
+      })),
+    };
+  }
+
+  async uploadSumula(matchId: number, sumulaUrl: string | null): Promise<void> {
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Partida não encontrada.');
+    match.sumulaUrl = sumulaUrl;
+    await this.matchRepo.save(match);
   }
 
 

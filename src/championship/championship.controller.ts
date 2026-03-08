@@ -20,6 +20,7 @@ import {
   AddGoalDto,
   PatchGoalDto,
   AddMatchCardDto,
+  UploadSumulaDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -167,6 +168,19 @@ export class ChampionshipController {
   @Patch('matches/:matchId/schedule')
   scheduleMatch(@Param('matchId') matchId: string, @Body() dto: ScheduleMatchDto) {
     return this.service.scheduleMatch(Number(matchId), dto);
+  }
+
+  /** Gols, cartões e súmula de uma partida */
+  @Get('matches/:matchId/detail')
+  getMatchDetail(@Param('matchId') matchId: string) {
+    return this.service.getMatchDetail(Number(matchId));
+  }
+
+  /** Salva (ou remove) a súmula digitalizada de uma partida */
+  @Patch('matches/:matchId/sumula')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  uploadSumula(@Param('matchId') matchId: string, @Body() dto: UploadSumulaDto) {
+    return this.service.uploadSumula(Number(matchId), dto.sumulaUrl);
   }
 
   // ─── MATCH CARDS ──────────────────────────────────────────────────────────

@@ -74,4 +74,10 @@ export class ChampionshipPublicController {
     const tournament = await this.service.getActiveTournament();
     return this.service.listPlayers(tournament.id, Number(teamId));
   }
+
+  /** Detalhe de uma partida: gols, cartões e súmula */
+  @Get('matches/:matchId/detail')
+  getMatchDetail(@Param('matchId') matchId: string) {
+    return this.service.getMatchDetail(Number(matchId));
+  }
 }
