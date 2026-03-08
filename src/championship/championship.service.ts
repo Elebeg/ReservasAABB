@@ -613,7 +613,7 @@ export class ChampionshipService {
         id:       g.id,
         teamId:   g.teamId,
         teamName: g.team?.name ?? null,
-        player:   g.player ? { id: g.player.id, name: g.player.name, number: g.player.number } : null,
+        player:   g.player ? { id: g.player.id, name: g.player.name, number: g.player.number, birthDate: g.player.birthDate ?? null } : null,
         ownGoal:  g.ownGoal,
       })),
       cards: cards.map(c => ({
@@ -621,7 +621,7 @@ export class ChampionshipService {
         teamId:   c.teamId,
         teamName: c.team?.name ?? null,
         type:     c.type,
-        player:   c.player ? { id: c.player.id, name: c.player.name, number: c.player.number } : null,
+        player:   c.player ? { id: c.player.id, name: c.player.name, number: c.player.number, birthDate: c.player.birthDate ?? null } : null,
       })),
     };
   }
