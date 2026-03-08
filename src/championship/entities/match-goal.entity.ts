@@ -14,19 +14,22 @@ export class MatchGoal {
   @Column()
   matchId: number;
 
-  @Column()
-  playerId: number;
+  @Column({ nullable: true })
+  playerId: number | null;
 
   @Column()
   teamId: number;
+
+  @Column({ default: false })
+  ownGoal: boolean;
 
   @ManyToOne(() => Match,  { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'matchId' })
   match: Match;
 
-  @ManyToOne(() => Player, { onDelete: 'CASCADE', eager: false })
+  @ManyToOne(() => Player, { onDelete: 'SET NULL', nullable: true, eager: false })
   @JoinColumn({ name: 'playerId' })
-  player: Player;
+  player: Player | null;
 
   @ManyToOne(() => Team,   { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'teamId' })

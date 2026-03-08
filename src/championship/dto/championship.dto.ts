@@ -77,8 +77,9 @@ export class BulkImportPlayersDto {
 
 /** Adiciona um evento de gol a uma partida */
 export class AddGoalDto {
-  playerId: number;
+  playerId?: number | null;
   teamId: number;
+  ownGoal?: boolean;
 }
 
 /** Adiciona um evento de cartão a uma partida */

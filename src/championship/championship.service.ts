@@ -221,20 +221,29 @@ export class ChampionshipService {
   }
 
   async addGoal(matchId: number, dto: AddGoalDto): Promise<MatchGoal> {
-    if (!dto.playerId) throw new BadRequestException('playerId é obrigatório.');
-    if (!dto.teamId)   throw new BadRequestException('teamId é obrigatório.');
+    if (!dto.ownGoal && !dto.playerId) throw new BadRequestException('playerId é obrigatório quando não é gol contra.');
+    if (!dto.teamId) throw new BadRequestException('teamId é obrigatório.');
 
-    const match  = await this.matchRepo.findOne({ where: { id: matchId } });
+    const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
-    const player = await this.playerRepo.findOne({ where: { id: dto.playerId } });
-    if (!player) throw new NotFoundException(`Jogador ${dto.playerId} não encontrado.`);
+
+    let player: Player | null = null;
+    if (dto.playerId) {
+      player = await this.playerRepo.findOne({ where: { id: dto.playerId } });
+      if (!player) throw new NotFoundException(`Jogador ${dto.playerId} não encontrado.`);
+    }
 
     const goal = await this.matchGoalRepo.save(
-      this.matchGoalRepo.create({ matchId, playerId: dto.playerId, teamId: dto.teamId }),
+      this.matchGoalRepo.create({
+        matchId,
+        playerId: dto.playerId ?? null,
+        teamId: dto.teamId,
+        ownGoal: dto.ownGoal ?? false,
+      }),
     );
 
-    // Se a partida já está finalizada, incrementa imediatamente
-    if (match.status === MatchStatus.FINISHED) {
+    // Se a partida já está finalizada e há jogador, incrementa imediatamente
+    if (match.status === MatchStatus.FINISHED && player) {
       player.goals = Math.max(0, player.goals + 1);
       await this.playerRepo.save(player);
     }
@@ -251,8 +260,8 @@ export class ChampionshipService {
 
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
 
-    // Se a partida já está finalizada, decrementa imediatamente
-    if (match?.status === MatchStatus.FINISHED) {
+    // Se a partida já está finalizada e o gol tem jogador (não é gol contra), decrementa
+    if (match?.status === MatchStatus.FINISHED && !goal.ownGoal && goal.playerId) {
       const player = await this.playerRepo.findOne({ where: { id: goal.playerId } });
       if (player) {
         player.goals = Math.max(0, player.goals - 1);
@@ -683,6 +692,7 @@ export class ChampionshipService {
     const goals = await this.matchGoalRepo.find({ where: { matchId } });
     const countByPlayer = new Map<number, number>();
     for (const g of goals) {
+      if (g.ownGoal || !g.playerId) continue;  // gol contra não conta para stats do jogador
       countByPlayer.set(g.playerId, (countByPlayer.get(g.playerId) ?? 0) + 1);
     }
     const entries = Array.from(countByPlayer.entries());
