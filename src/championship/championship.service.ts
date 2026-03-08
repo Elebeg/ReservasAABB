@@ -364,6 +364,10 @@ export class ChampionshipService {
       await this._revertGroupStanding(match, match.homeScore!, match.awayScore!);
     }
 
+    // Coleta jogadores com cartões nesta partida (antes de deletar)
+    const cardsInMatch = await this.matchCardRepo.find({ where: { matchId } });
+    const affectedPlayerIds = [...new Set(cardsInMatch.map(c => c.playerId))];
+
     // Reverte gols e cartões dos jogadores
     await this._applyGoalStats(matchId, -1);
     await this._applyCardStats(matchId, -1);
@@ -374,6 +378,11 @@ export class ChampionshipService {
     match.awayPenalties = null;
     match.status        = MatchStatus.SCHEDULED;
     await this.matchRepo.save(match);
+
+    // Recomputa suspensão com base no histórico RESTANTE (partida já está SCHEDULED)
+    for (const playerId of affectedPlayerIds) {
+      await this._recomputePlayerSuspension(playerId);
+    }
 
     return this.matchRepo.findOne({ where: { id: matchId } }) as Promise<Match>;
   }
@@ -832,17 +841,19 @@ export class ChampionshipService {
 
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
 
-    // Se partida já finalizada, decrementa stat imediatamente
+    await this.matchCardRepo.delete(cardId);
+
+    // Se partida já finalizada, decrementa stat e recomputa suspensão
     if (match?.status === MatchStatus.FINISHED) {
       const player = await this.playerRepo.findOne({ where: { id: card.playerId } });
       if (player) {
         const stat = card.type === 'YELLOW' ? 'yellowCards' : 'redCards';
         player[stat] = Math.max(0, player[stat] - 1);
         await this.playerRepo.save(player);
+        // Recalcula suspensão a partir do histórico real (cartão já foi deletado acima)
+        await this._recomputePlayerSuspension(card.playerId);
       }
     }
-
-    await this.matchCardRepo.delete(cardId);
   }
 
   /**
@@ -901,6 +912,52 @@ export class ChampionshipService {
       { teamId: In([match.homeTeamId, match.awayTeamId]), suspended: true },
       { suspended: false },
     );
+  }
+
+  /**
+   * Recalcula yellowCardAccum e suspended de um jogador simulando todas as partidas
+   * FINALIZADAS do time em ordem cronológica — usado ao remover cartões ou cancelar resultados.
+   */
+  private async _recomputePlayerSuspension(playerId: number): Promise<void> {
+    const player = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!player) return;
+
+    // Todas as partidas FINALIZADAS do time, em ordem de ID (proxy de ordem cronológica)
+    const teamMatches = await this.matchRepo.find({
+      where: [
+        { homeTeamId: player.teamId, status: MatchStatus.FINISHED },
+        { awayTeamId: player.teamId, status: MatchStatus.FINISHED },
+      ],
+      order: { id: 'ASC' },
+    });
+
+    let yellowAccum = 0;
+    let suspended   = false;
+    let phaseGroup: 'group' | 'knockout' | null = null;
+
+    for (const match of teamMatches) {
+      const pg = match.phase === MatchPhase.GROUP ? 'group' : 'knockout';
+
+      // Transição de fase: zera acumulação de amarelos
+      if (phaseGroup && phaseGroup !== pg) yellowAccum = 0;
+      phaseGroup = pg;
+
+      // Início da partida: jogador suspenso cumpre a suspensão
+      if (suspended) suspended = false;
+
+      // Cartões deste jogador nesta partida
+      const matchCards = await this.matchCardRepo.find({ where: { matchId: match.id, playerId } });
+      const hasRed = matchCards.some(c => c.type === 'RED');
+      const yellows = matchCards.filter(c => c.type === 'YELLOW').length;
+
+      if (hasRed) suspended = true;
+      yellowAccum += yellows;
+      if (yellowAccum >= 2) { suspended = true; yellowAccum = 0; }
+    }
+
+    player.yellowCardAccum = yellowAccum;
+    player.suspended       = suspended;
+    await this.playerRepo.save(player);
   }
 
   private async _findTournament(id: number, withRelations = false): Promise<Tournament> {
