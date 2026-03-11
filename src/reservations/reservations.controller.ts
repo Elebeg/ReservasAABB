@@ -15,8 +15,8 @@ export class ReservationsController {
     return this.reservationsService.create(req.user, createReservationDto);
   }
 
-  // Somente admins podem listar todas as reservas
-  @UseGuards(AdminAuthGuard)
+  // Qualquer usuário autenticado pode ver as reservas (para verificar disponibilidade de horários)
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll() {
     return this.reservationsService.findAll();
