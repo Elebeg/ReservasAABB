@@ -23,5 +23,6 @@ import { Reservation } from '../reservations/reservation.entity';
   ],
   controllers: [AdminController],
   providers: [AdminService, AdminAuthGuard],
+  exports: [AdminAuthGuard],
 })
 export class AdminModule {}

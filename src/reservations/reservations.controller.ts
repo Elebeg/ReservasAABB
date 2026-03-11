@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, Put, Request, ForbiddenExce
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminAuthGuard } from '../admin/admin-auth.guard';
 import { UseGuards } from '@nestjs/common';
 
 @Controller('reservations')
@@ -14,7 +15,8 @@ export class ReservationsController {
     return this.reservationsService.create(req.user, createReservationDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  // Somente admins podem listar todas as reservas
+  @UseGuards(AdminAuthGuard)
   @Get()
   findAll() {
     return this.reservationsService.findAll();
@@ -25,13 +27,13 @@ export class ReservationsController {
   findMine(@Request() req) {
     return this.reservationsService.findByUser(req.user.userId);
   }
-  
+
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   updateReservationDate(@Param('id') id: number, @Request() req, @Body('startTime') startTime: Date) {
     return this.reservationsService.updateDate(req.user.userId, id, startTime);
   }
-  
+
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   deleteReservation(@Param('id') id: number, @Request() req) {

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { User } from './users/user.entity';
@@ -24,18 +26,26 @@ import { MatchCard } from './championship/entities/match-card.entity';
   imports: [
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // ── Rate limiting: 60 req/minuto por IP (geral) ──────────────────────────
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,   // janela de 1 minuto
+        limit: 60,    // máx 60 requisições por janela
+      },
+      {
+        name: 'auth',
+        ttl: 60000,   // janela de 1 minuto
+        limit: 10,    // máx 10 tentativas de login por minuto
+      },
+    ]),
+
     TypeOrmModule.forRoot({
       type: 'postgres',
-      // --- LOCAL ---
-      //host: process.env.DATABASE_HOST || 'localhost',
-      //port: Number(process.env.DATABASE_PORT || 5433),
-      //username: process.env.DATABASE_USER || 'postgres',
-      //password: process.env.DATABASE_PASSWORD || 'postgres',
-      //database: process.env.DATABASE_NAME || 'beachtennis',
-      // --- PRODUÇÃO (substituir bloco acima pelo abaixo) ---
       url: process.env.DATABASE_URL,
       entities: [User, Court, Reservation, Tournament, Team, TournamentGroup, GroupStanding, Match, Player, MatchGoal, MatchCard],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production', 
     }),
     UsersModule,
     AuthModule,
@@ -43,6 +53,10 @@ import { MatchCard } from './championship/entities/match-card.entity';
     ReservationsModule,
     AdminModule,
     ChampionshipModule,
+  ],
+  providers: [
+    // Aplica rate limiting globalmente
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

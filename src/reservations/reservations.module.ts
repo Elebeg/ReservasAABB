@@ -5,6 +5,7 @@ import { ReservationsService } from './reservations.service';
 import { ReservationsController } from './reservations.controller';
 import { CourtsModule } from '../courts/courts.module';
 import { UsersModule } from '../users/users.module';
+import { AdminModule } from '../admin/admin.module';
 import { Court } from '../courts/court.entity';
 import { User } from '../users/user.entity';
 
@@ -13,6 +14,7 @@ import { User } from '../users/user.entity';
     TypeOrmModule.forFeature([Reservation, Court, User]),
     CourtsModule,
     UsersModule,
+    AdminModule,
   ],
   providers: [ReservationsService],
   controllers: [ReservationsController],
