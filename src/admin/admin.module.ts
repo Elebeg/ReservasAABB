@@ -23,6 +23,6 @@ import { Reservation } from '../reservations/reservation.entity';
   ],
   controllers: [AdminController],
   providers: [AdminService, AdminAuthGuard],
-  exports: [AdminAuthGuard],
+  exports: [AdminAuthGuard, JwtModule],
 })
 export class AdminModule {}
