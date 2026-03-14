@@ -855,7 +855,7 @@ export class ChampionshipService {
         player.suspended = true;
       } else {
         player.yellowCardAccum += 1;
-        if (player.yellowCardAccum >= 2) {
+        if (player.yellowCardAccum >= 3) {
           player.suspended = true;
           player.yellowCardAccum = 0;
         }
@@ -923,7 +923,7 @@ export class ChampionshipService {
           player.suspended = true; // vermelho → suspenso; não afeta yellowCardAccum
         }
         player.yellowCardAccum += yellows;
-        if (player.yellowCardAccum >= 2) {
+        if (player.yellowCardAccum >= 3) {
           player.suspended = true;
           player.yellowCardAccum = 0; // reset do ciclo — contagem recomeça
         }
@@ -986,7 +986,7 @@ export class ChampionshipService {
 
       if (hasRed) suspended = true;
       yellowAccum += yellows;
-      if (yellowAccum >= 2) { suspended = true; yellowAccum = 0; }
+      if (yellowAccum >= 3) { suspended = true; yellowAccum = 0; }
     }
 
     player.yellowCardAccum = yellowAccum;
