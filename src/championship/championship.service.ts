@@ -686,8 +686,12 @@ export class ChampionshipService {
 
 
   async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<Match> {
+     console.log('scheduleMatch dto recebido:', JSON.stringify(dto));
+
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
+
+    console.log('match antes:', { venueId: match.venueId, scheduledAt: match.scheduledAt });
  
     // Data/hora
     if (dto.scheduledAt !== undefined) {
