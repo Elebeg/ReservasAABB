@@ -21,6 +21,7 @@ import { Match } from './championship/entities/match.entity';
 import { Player } from './championship/entities/player.entity';
 import { MatchGoal } from './championship/entities/match-goal.entity';
 import { MatchCard } from './championship/entities/match-card.entity';
+import { Venue } from './championship/entities/venue.entity';
 
 @Module({
   imports: [
@@ -44,7 +45,20 @@ import { MatchCard } from './championship/entities/match-card.entity';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [User, Court, Reservation, Tournament, Team, TournamentGroup, GroupStanding, Match, Player, MatchGoal, MatchCard],
+      entities: [
+        User, 
+        Court, 
+        Reservation, 
+        Tournament, 
+        Team, 
+        TournamentGroup, 
+        GroupStanding, 
+        Match, 
+        Player, 
+        MatchGoal, 
+        MatchCard, 
+        Venue,
+      ],
       synchronize: process.env.NODE_ENV !== 'production', 
     }),
     UsersModule,
