@@ -15,7 +15,7 @@ export class Venue {
   @Column({ type: 'text', nullable: true })
   address: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   city: string | null;
 
   @Column({ type: 'text', nullable: true })
