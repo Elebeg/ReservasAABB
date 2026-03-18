@@ -102,11 +102,16 @@ class GroupAssignmentItemDto {
 }
 
 export class ScheduleMatchDto {
+  // null = remover data; undefined = campo ausente (não altera)
   @IsOptional()
+  @ValidateIf(o => o.scheduledAt !== null)
   @IsString()
   scheduledAt?: string | null;
 
+  // null = remover local; undefined = campo ausente (não altera)
+  // @IsInt falha silenciosamente em null com whitelist:true, ValidateIf protege
   @IsOptional()
+  @ValidateIf(o => o.venueId !== null)
   @Type(() => Number)
   @IsInt()
   venueId?: number | null;
