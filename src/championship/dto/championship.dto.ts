@@ -102,17 +102,14 @@ class GroupAssignmentItemDto {
 }
 
 export class ScheduleMatchDto {
-  /** Data/hora agendada — null para remover o agendamento */
-  @ValidateIf(o => o.scheduledAt !== null)
   @IsOptional()
   @IsString()
-  scheduledAt: string | null;
+  scheduledAt?: string | null;
 
-  /** Local da partida — null para remover o vínculo */
-  @ValidateIf(o => o.venueId !== null)
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
-  venueId: number | null;
+  venueId?: number | null;
 }
 
 // ─── VENUES ─────────────────────────────────────────────────────────────────

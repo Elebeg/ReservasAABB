@@ -59,7 +59,7 @@ import { Venue } from './championship/entities/venue.entity';
         MatchCard, 
         Venue,
       ],
-      synchronize: true, 
+      synchronize: process.env.NODE_ENV !== 'production', 
     }),
     UsersModule,
     AuthModule,
