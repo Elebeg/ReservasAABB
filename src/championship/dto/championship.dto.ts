@@ -1,7 +1,7 @@
 import {
   IsString, IsOptional, IsNumber, IsInt, IsBoolean,
   IsEnum, IsArray, ValidateNested, IsIn, Min, IsDateString,
-  ValidateIf, Allow,
+  ValidateIf, Allow, IsUrl,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TournamentFormat } from '../entities/tournament.entity';
@@ -102,10 +102,64 @@ class GroupAssignmentItemDto {
 }
 
 export class ScheduleMatchDto {
+  /** Data/hora agendada — null para remover o agendamento */
   @ValidateIf(o => o.scheduledAt !== null)
   @IsOptional()
   @IsString()
   scheduledAt: string | null;
+
+  /** Local da partida — null para remover o vínculo */
+  @ValidateIf(o => o.venueId !== null)
+  @IsOptional()
+  @IsInt()
+  venueId: number | null;
+}
+
+// ─── VENUES ─────────────────────────────────────────────────────────────────
+
+export class CreateVenueDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  city?: string | null;
+
+  @IsOptional()
+  @IsString()
+  mapUrl?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  capacity?: number | null;
+}
+
+export class UpdateVenueDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  city?: string | null;
+
+  @IsOptional()
+  @IsString()
+  mapUrl?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  capacity?: number | null;
 }
 
 // ─── PLAYERS ────────────────────────────────────────────────────────────────

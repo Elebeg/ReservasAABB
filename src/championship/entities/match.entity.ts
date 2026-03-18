@@ -4,13 +4,14 @@ import {
 } from 'typeorm';
 import { Tournament } from './tournament.entity';
 import { Team } from './team.entity';
+import { Venue } from './venue.entity';
 
 export enum MatchPhase {
-  GROUP        = 'GROUP',
-  ROUND_OF_16  = 'ROUND_OF_16',
+  GROUP         = 'GROUP',
+  ROUND_OF_16   = 'ROUND_OF_16',
   QUARTER_FINAL = 'QUARTER_FINAL',
-  SEMI_FINAL   = 'SEMI_FINAL',
-  FINAL        = 'FINAL',
+  SEMI_FINAL    = 'SEMI_FINAL',
+  FINAL         = 'FINAL',
 }
 
 export enum MatchStatus {
@@ -75,6 +76,14 @@ export class Match {
   // Data/hora agendada para a partida
   @Column({ type: 'timestamp', nullable: true })
   scheduledAt: Date | null;
+
+  // Local da partida (opcional)
+  @ManyToOne(() => Venue, { nullable: true, eager: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'venueId' })
+  venue: Venue | null;
+
+  @Column({ type: 'int', nullable: true })
+  venueId: number | null;
 
   // Bracket linking: qual partida recebe o vencedor desta
   @Column({ type: 'int', nullable: true })

@@ -43,6 +43,16 @@ export class ChampionshipPublicController {
     return this.service.getMatches(tournament.id, phase);
   }
 
+  /**
+   * Locais cadastrados do torneio ativo.
+   * Útil para o front exibir mapa/endereço ou filtrar partidas por campo.
+   */
+  @Get('active/venues')
+  async getActiveVenues() {
+    const tournament = await this.service.getActiveTournament();
+    return this.service.listVenues(tournament.id);
+  }
+
   /** Detalhe de qualquer torneio por ID (para histórico) */
   @Get('tournaments/:id')
   getTournament(@Param('id') id: string) {
@@ -65,6 +75,12 @@ export class ChampionshipPublicController {
   @Get('tournaments/:id/matches')
   getMatches(@Param('id') id: string, @Query('phase') phase?: MatchPhase) {
     return this.service.getMatches(Number(id), phase);
+  }
+
+  /** Locais de qualquer torneio */
+  @Get('tournaments/:id/venues')
+  getVenues(@Param('id') id: string) {
+    return this.service.listVenues(Number(id));
   }
 
   /** Artilharia + ranking de cartões do torneio ativo */

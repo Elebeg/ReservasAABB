@@ -13,6 +13,7 @@ import { Match, MatchPhase, MatchStatus } from './entities/match.entity';
 import { Player, PlayerPosition } from './entities/player.entity';
 import { MatchGoal } from './entities/match-goal.entity';
 import { MatchCard } from './entities/match-card.entity';
+import { Venue } from './entities/venue.entity';
 import {
   CreateTournamentDto,
   AddTeamDto,
@@ -27,6 +28,8 @@ import {
   UpdatePlayerStatsDto,
   AddGoalDto,
   AddMatchCardDto,
+  CreateVenueDto,
+  UpdateVenueDto,
 } from './dto/championship.dto';
 
 @Injectable()
@@ -39,6 +42,7 @@ export class ChampionshipService {
     @InjectRepository(Match)           private matchRepo: Repository<Match>,
     @InjectRepository(Player)          private playerRepo: Repository<Player>,
     @InjectRepository(MatchGoal)       private matchGoalRepo: Repository<MatchGoal>,
+    @InjectRepository(Venue) private venueRepo: Repository<Venue>,
     @InjectRepository(MatchCard)       private matchCardRepo: Repository<MatchCard>,
     private dataSource: DataSource,
   ) {}
@@ -681,13 +685,29 @@ export class ChampionshipService {
   }
 
 
-  /** Define (ou limpa) a data/hora de uma partida */
-  async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<{ id: number; scheduledAt: Date | null }> {
+  async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<Match> {
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
-    match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
-    await this.matchRepo.save(match);
-    return { id: match.id, scheduledAt: match.scheduledAt };
+ 
+    // Data/hora
+    if (dto.scheduledAt !== undefined) {
+      match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    }
+ 
+    // Local
+    if (dto.venueId !== undefined) {
+      if (dto.venueId === null) {
+        match.venueId = null;
+      } else {
+        const venue = await this.venueRepo.findOne({
+          where: { id: dto.venueId, tournamentId: match.tournamentId },
+        });
+        if (!venue) throw new NotFoundException('Local não encontrado neste torneio.');
+        match.venueId = venue.id;
+      }
+    }
+ 
+    return this.matchRepo.save(match);
   }
 
 
@@ -1372,5 +1392,46 @@ export class ChampionshipService {
     if (!winnerId) return null;
     const team = winnerId === match.homeTeamId ? match.homeTeam : match.awayTeam;
     return team ? { id: team.id, name: team.name, logoUrl: team.logoUrl ?? null } : null;
+  }
+ 
+// ─── ADICIONE estes métodos na seção de VENUES (novo bloco) ─────────────────
+ 
+  // ─── VENUES ───────────────────────────────────────────────────────────────
+ 
+  async createVenue(tournamentId: number, dto: CreateVenueDto): Promise<Venue> {
+    await this._findTournament(tournamentId);
+    const venue = this.venueRepo.create({
+      ...dto,
+      address:  dto.address  ?? null,
+      city:     dto.city     ?? null,
+      mapUrl:   dto.mapUrl   ?? null,
+      capacity: dto.capacity ?? null,
+      tournamentId,
+    });
+    return this.venueRepo.save(venue);
+  }
+ 
+  async listVenues(tournamentId: number): Promise<Venue[]> {
+    await this._findTournament(tournamentId);
+    return this.venueRepo.find({
+      where: { tournamentId },
+      order: { name: 'ASC' },
+    });
+  }
+ 
+  async updateVenue(venueId: number, dto: UpdateVenueDto): Promise<Venue> {
+    const venue = await this.venueRepo.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Local não encontrado.');
+    Object.assign(venue, dto);
+    return this.venueRepo.save(venue);
+  }
+ 
+  async deleteVenue(venueId: number): Promise<void> {
+    const venue = await this.venueRepo.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Local não encontrado.');
+ 
+    // Desvincula partidas que usavam este local antes de remover
+    await this.matchRepo.update({ venueId }, { venueId: null });
+    await this.venueRepo.remove(venue);
   }
 }

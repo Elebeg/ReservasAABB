@@ -21,6 +21,8 @@ import {
   PatchGoalDto,
   AddMatchCardDto,
   UploadSumulaDto,
+  CreateVenueDto,
+  UpdateVenueDto,
 } from './dto/championship.dto';
 import { MatchPhase } from './entities/match.entity';
 
@@ -52,7 +54,6 @@ export class ChampionshipController {
     return this.service.deleteTournament(Number(id));
   }
 
-  /** Define o torneio como ativo (exibido publicamente) */
   @Patch('tournaments/:id/set-active')
   setActiveTournament(@Param('id') id: string) {
     return this.service.setActiveTournament(Number(id));
@@ -85,6 +86,36 @@ export class ChampionshipController {
     return this.service.removeTeam(Number(id), Number(teamId));
   }
 
+  // ─── VENUES ───────────────────────────────────────────────────────────────
+
+  /** Cadastra um novo local para o torneio */
+  @Post('tournaments/:id/venues')
+  createVenue(@Param('id') id: string, @Body() dto: CreateVenueDto) {
+    return this.service.createVenue(Number(id), dto);
+  }
+
+  /** Lista todos os locais do torneio */
+  @Get('tournaments/:id/venues')
+  listVenues(@Param('id') id: string) {
+    return this.service.listVenues(Number(id));
+  }
+
+  /** Edita nome, endereço, cidade, link do mapa ou capacidade */
+  @Patch('venues/:venueId')
+  updateVenue(@Param('venueId') venueId: string, @Body() dto: UpdateVenueDto) {
+    return this.service.updateVenue(Number(venueId), dto);
+  }
+
+  /**
+   * Remove o local. Partidas vinculadas a ele têm venueId zerado automaticamente
+   * (o service faz o UPDATE antes de deletar).
+   */
+  @Delete('venues/:venueId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteVenue(@Param('venueId') venueId: string) {
+    return this.service.deleteVenue(Number(venueId));
+  }
+
   // ─── GROUPS ───────────────────────────────────────────────────────────────
 
   @Post('tournaments/:id/assign-groups')
@@ -114,19 +145,16 @@ export class ChampionshipController {
     return this.service.getMatches(Number(id), phase);
   }
 
-  /** Registra resultado de uma partida */
   @Post('matches/:matchId/result')
   recordResult(@Param('matchId') matchId: string, @Body() dto: RecordResultDto) {
     return this.service.recordResult(Number(matchId), dto);
   }
 
-  /** Corrige resultado já registrado e recalcula tabela/bracket */
   @Patch('matches/:matchId/result')
   updateResult(@Param('matchId') matchId: string, @Body() dto: UpdateResultDto) {
     return this.service.updateResult(Number(matchId), dto);
   }
 
-  /** Cancela o resultado de uma partida, revertendo standings/bracket */
   @Delete('matches/:matchId/result')
   @HttpCode(HttpStatus.OK)
   deleteResult(@Param('matchId') matchId: string) {
@@ -135,19 +163,16 @@ export class ChampionshipController {
 
   // ─── MATCH GOALS ──────────────────────────────────────────────────────────
 
-  /** Lista os eventos de gol salvos de uma partida */
   @Get('matches/:matchId/goals')
   getMatchGoals(@Param('matchId') matchId: string) {
     return this.service.getMatchGoals(Number(matchId));
   }
 
-  /** Salva um evento de gol — se partida já finalizada, incrementa stat imediatamente */
   @Post('matches/:matchId/goals')
   addGoal(@Param('matchId') matchId: string, @Body() dto: AddGoalDto) {
     return this.service.addGoal(Number(matchId), dto);
   }
 
-  /** Atualiza o jogador marcador de um gol já existente */
   @Patch('matches/:matchId/goals/:goalId')
   patchGoal(
     @Param('matchId') matchId: string,
@@ -157,26 +182,23 @@ export class ChampionshipController {
     return this.service.patchGoal(Number(matchId), Number(goalId), dto.playerId);
   }
 
-  /** Remove um evento de gol — se partida já finalizada, decrementa stat imediatamente */
   @Delete('matches/:matchId/goals/:goalId')
   @HttpCode(HttpStatus.NO_CONTENT)
   removeGoal(@Param('matchId') matchId: string, @Param('goalId') goalId: string) {
     return this.service.removeGoal(Number(matchId), Number(goalId));
   }
 
-  /** Define (ou remove) a data/hora agendada de uma partida */
+  /** Define (ou remove) a data/hora e o local agendado de uma partida */
   @Patch('matches/:matchId/schedule')
   scheduleMatch(@Param('matchId') matchId: string, @Body() dto: ScheduleMatchDto) {
     return this.service.scheduleMatch(Number(matchId), dto);
   }
 
-  /** Gols, cartões e súmula de uma partida */
   @Get('matches/:matchId/detail')
   getMatchDetail(@Param('matchId') matchId: string) {
     return this.service.getMatchDetail(Number(matchId));
   }
 
-  /** Salva (ou remove) a súmula digitalizada de uma partida */
   @Patch('matches/:matchId/sumula')
   @HttpCode(HttpStatus.NO_CONTENT)
   uploadSumula(@Param('matchId') matchId: string, @Body() dto: UploadSumulaDto) {
@@ -212,6 +234,7 @@ export class ChampionshipController {
   getBracket(@Param('id') id: string) {
     return this.service.getBracket(Number(id));
   }
+
   // ─── PLAYERS ──────────────────────────────────────────────────────────────
 
   @Get('tournaments/:id/teams/:teamId/players')
@@ -219,7 +242,6 @@ export class ChampionshipController {
     return this.service.listPlayers(Number(id), Number(teamId));
   }
 
-  /** Todos os jogadores do torneio — artilharia e ranking de cartões */
   @Get('tournaments/:id/players')
   listAllPlayers(@Param('id') id: string) {
     return this.service.listAllPlayers(Number(id));
@@ -234,7 +256,6 @@ export class ChampionshipController {
     return this.service.addPlayer(Number(id), Number(teamId), dto);
   }
 
-  /** Importação estruturada — substitui o elenco atual do time */
   @Post('tournaments/:id/teams/:teamId/players/import')
   importPlayers(
     @Param('id') id: string,
@@ -244,11 +265,6 @@ export class ChampionshipController {
     return this.service.importPlayers(Number(id), Number(teamId), dto);
   }
 
-  /**
-   * Importação por texto — uma linha por jogador: "Nome;Número;Posição"
-   * Número e Posição são opcionais. Posições: GK, DEF, MID, FWD
-   * Substitui o elenco atual do time.
-   */
   @Post('tournaments/:id/teams/:teamId/players/import-lines')
   bulkImportByLines(
     @Param('id') id: string,
@@ -258,7 +274,6 @@ export class ChampionshipController {
     return this.service.bulkImportByLines(Number(id), Number(teamId), dto);
   }
 
-  /** Atualiza nome, número e/ou posição de um jogador (campos opcionais) */
   @Patch('players/:playerId')
   updatePlayer(@Param('playerId') playerId: string, @Body() dto: UpdatePlayerDto) {
     return this.service.updatePlayer(Number(playerId), dto);
@@ -270,20 +285,17 @@ export class ChampionshipController {
     return this.service.removePlayer(Number(playerId));
   }
 
-  /** Limpa manualmente a suspensão de um jogador (override do admin) */
   @Patch('players/:playerId/suspension/clear')
   @HttpCode(HttpStatus.NO_CONTENT)
   clearPlayerSuspension(@Param('playerId') playerId: string) {
     return this.service.clearPlayerSuspension(Number(playerId));
   }
 
-  /** Atualiza estatísticas completas de um jogador */
   @Patch('players/:playerId/stats')
   updatePlayerStats(@Param('playerId') playerId: string, @Body() dto: UpdatePlayerStatsDto) {
     return this.service.updatePlayerStats(Number(playerId), dto);
   }
 
-  /** +1 / -1 rápido em gol ou cartão */
   @Patch('players/:playerId/stat/:stat/increment')
   incrementStat(
     @Param('playerId') playerId: string,
