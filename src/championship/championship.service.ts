@@ -632,7 +632,11 @@ export class ChampionshipService {
   async getMatches(tournamentId: number, phase?: MatchPhase) {
     const where: any = { tournamentId };
     if (phase) where.phase = phase;
-    const matches = await this.matchRepo.find({ where, order: { scheduledAt: 'ASC', round: 'ASC', id: 'ASC' } });
+    const matches = await this.matchRepo.find({
+      where,
+      relations: ['venue'],
+      order: { scheduledAt: 'ASC', round: 'ASC', id: 'ASC' },
+    });
     return matches.map((m) => ({
       id:             m.id,
       phase:          m.phase,
@@ -646,6 +650,15 @@ export class ChampionshipService {
       homePenalties:  m.homePenalties,
       awayPenalties:  m.awayPenalties,
       hasSumula:      !!m.sumulaUrl,
+      venueId:        m.venueId ?? null,
+      venue:          m.venue ? {
+        id:       m.venue.id,
+        name:     m.venue.name,
+        city:     m.venue.city     ?? null,
+        address:  m.venue.address  ?? null,
+        mapUrl:   m.venue.mapUrl   ?? null,
+        capacity: m.venue.capacity ?? null,
+      } : null,
     }));
   }
 
@@ -686,13 +699,9 @@ export class ChampionshipService {
 
 
   async scheduleMatch(matchId: number, dto: ScheduleMatchDto): Promise<Match> {
-     console.log('scheduleMatch dto recebido:', JSON.stringify(dto));
-
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
 
-    console.log('match antes:', { venueId: match.venueId, scheduledAt: match.scheduledAt });
- 
     // Data/hora
     if (dto.scheduledAt !== undefined) {
       match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
