@@ -702,25 +702,35 @@ export class ChampionshipService {
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Partida não encontrada.');
 
-    // Data/hora
+    // Monta apenas as colunas que realmente mudaram
+    const patch: Partial<{ scheduledAt: Date | null; venueId: number | null }> = {};
+
     if (dto.scheduledAt !== undefined) {
-      match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+      patch.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     }
- 
-    // Local
+
     if (dto.venueId !== undefined) {
       if (dto.venueId === null) {
-        match.venueId = null;
+        patch.venueId = null;
       } else {
         const venue = await this.venueRepo.findOne({
           where: { id: dto.venueId, tournamentId: match.tournamentId },
         });
         if (!venue) throw new NotFoundException('Local não encontrado neste torneio.');
-        match.venueId = venue.id;
+        patch.venueId = venue.id;
       }
     }
- 
-    return this.matchRepo.save(match);
+
+    // UPDATE cirúrgico — só altera as colunas do patch, sem tocar nas demais
+    if (Object.keys(patch).length > 0) {
+      await this.matchRepo.update(matchId, patch);
+    }
+
+    // Retorna o match atualizado com a relação venue carregada
+    return this.matchRepo.findOne({
+      where: { id: matchId },
+      relations: ['venue'],
+    }) as Promise<Match>;
   }
 
 
