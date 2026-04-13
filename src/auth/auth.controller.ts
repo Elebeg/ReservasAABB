@@ -43,4 +43,10 @@ export class AuthController {
     const payload = ticket.getPayload();
     return this.authService.googleLogin(payload);
   }
+
+  // Controller para manter ativo o railway.
+  @Get('health')
+  health() {
+    return { ok: true };
+  }
 }
