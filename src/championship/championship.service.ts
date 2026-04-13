@@ -106,33 +106,24 @@ export class ChampionshipService {
    * Usado pelo frontend para evitar 5 round-trips separados.
    */
   async getActiveFull() {
-    const tournament = await this.getActiveTournament();
-    const id = tournament.id;
+  // Busca leve só para pegar o id
+  const tournament = await this.tournamentRepo.findOne({
+    where: { active: true },
+    select: ['id', 'name', 'description', 'format', 'status',
+             'teamsAdvancing', 'startDate', 'createdAt', 'active'],
+  });
+  if (!tournament) throw new NotFoundException('Nenhum torneio ativo no momento.');
 
-    const [standings, bracket, matches, players] = await Promise.all([
-      this.getStandings(id).catch(() => []),
-      this.getBracket(id).catch(() => null),
-      this.getMatches(id).catch(() => []),
-      this.listAllPlayers(id).catch(() => []),
-    ]);
+  const id = tournament.id;
 
-    return {
-      tournament: {
-        id:              tournament.id,
-        name:            tournament.name,
-        description:     tournament.description ?? null,
-        format:          tournament.format,
-        status:          tournament.status,
-        teamsAdvancing:  tournament.teamsAdvancing,
-        startDate:       tournament.startDate ?? null,
-        createdAt:       tournament.createdAt,
-        active:          tournament.active,
-      },
-      standings,
-      bracket,
-      matches,
-      players,
-    };
+  const [standings, bracket, matches, players] = await Promise.all([
+    this.getStandings(id).catch(() => []),
+    this.getBracket(id).catch(() => null),
+    this.getMatches(id).catch(() => []),
+    this.listAllPlayers(id).catch(() => []),
+  ]);
+
+  return { tournament, standings, bracket, matches, players };
   }
 
   // ─── TEAMS ────────────────────────────────────────────────────────────────
@@ -537,6 +528,19 @@ export class ChampionshipService {
       MatchPhase.FINAL,
     ];
 
+    // ✅ 1 query só, em vez de 4 sequenciais
+    const allMatches = await this.matchRepo.find({
+      where: { tournamentId, phase: In(knockoutPhases) },
+      order: { id: 'ASC' },
+    });
+
+    // Agrupa por fase em memória
+    const byPhase = new Map<MatchPhase, typeof allMatches>();
+    for (const m of allMatches) {
+      if (!byPhase.has(m.phase)) byPhase.set(m.phase, []);
+      byPhase.get(m.phase)!.push(m);
+    }
+
     const phaseLabels: Record<MatchPhase, string> = {
       [MatchPhase.GROUP]:         'Fase de Grupos',
       [MatchPhase.ROUND_OF_16]:   'Oitavas de Final',
@@ -545,45 +549,23 @@ export class ChampionshipService {
       [MatchPhase.FINAL]:         'Final',
     };
 
-    const rounds: {
-      phase: MatchPhase;
-      label: string;
-      matches: {
-        id: number;
-        status: MatchStatus;
-        homeTeam: { id: number; name: string } | null;
-        awayTeam: { id: number; name: string } | null;
-        homeScore: number | null;
-        awayScore: number | null;
-        homePenalties: number | null;
-        awayPenalties: number | null;
-        winner: { id: number; name: string } | null;
-      }[];
-    }[] = [];
-
-    for (const phase of knockoutPhases) {
-      const matches = await this.matchRepo.find({
-        where: { tournamentId, phase },
-        order: { id: 'ASC' },
-      });
-      if (!matches.length) continue;
-
-      rounds.push({
+    const rounds = knockoutPhases
+      .filter(phase => byPhase.has(phase))
+      .map(phase => ({
         phase,
         label: phaseLabels[phase],
-        matches: matches.map((m) => ({
-          id:           m.id,
-          status:       m.status,
-          homeTeam:     m.homeTeam ? { id: m.homeTeam.id, name: m.homeTeam.name, logoUrl: m.homeTeam.logoUrl ?? null } : null,
-          awayTeam:     m.awayTeam ? { id: m.awayTeam.id, name: m.awayTeam.name, logoUrl: m.awayTeam.logoUrl ?? null } : null,
-          homeScore:    m.homeScore,
-          awayScore:    m.awayScore,
+        matches: byPhase.get(phase)!.map((m) => ({
+          id:            m.id,
+          status:        m.status,
+          homeTeam:      m.homeTeam  ? { id: m.homeTeam.id,  name: m.homeTeam.name,  logoUrl: m.homeTeam.logoUrl  ?? null } : null,
+          awayTeam:      m.awayTeam  ? { id: m.awayTeam.id,  name: m.awayTeam.name,  logoUrl: m.awayTeam.logoUrl  ?? null } : null,
+          homeScore:     m.homeScore,
+          awayScore:     m.awayScore,
           homePenalties: m.homePenalties,
           awayPenalties: m.awayPenalties,
-          winner:       this._getWinner(m),
+          winner:        this._getWinner(m),
         })),
-      });
-    }
+      }));
 
     return { tournamentId, rounds };
   }
