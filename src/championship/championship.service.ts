@@ -531,6 +531,7 @@ export class ChampionshipService {
     // ✅ 1 query só, em vez de 4 sequenciais
     const allMatches = await this.matchRepo.find({
       where: { tournamentId, phase: In(knockoutPhases) },
+      relations: ['venue'],
       order: { id: 'ASC' },
     });
 
@@ -557,12 +558,22 @@ export class ChampionshipService {
         matches: byPhase.get(phase)!.map((m) => ({
           id:            m.id,
           status:        m.status,
+          scheduledAt:   m.scheduledAt ?? null,
           homeTeam:      m.homeTeam  ? { id: m.homeTeam.id,  name: m.homeTeam.name,  logoUrl: m.homeTeam.logoUrl  ?? null } : null,
           awayTeam:      m.awayTeam  ? { id: m.awayTeam.id,  name: m.awayTeam.name,  logoUrl: m.awayTeam.logoUrl  ?? null } : null,
           homeScore:     m.homeScore,
           awayScore:     m.awayScore,
           homePenalties: m.homePenalties,
           awayPenalties: m.awayPenalties,
+          venueId:       m.venueId ?? null,
+          venue:         m.venue ? {
+            id:       m.venue.id,
+            name:     m.venue.name,
+            city:     m.venue.city     ?? null,
+            address:  m.venue.address  ?? null,
+            mapUrl:   m.venue.mapUrl   ?? null,
+            capacity: m.venue.capacity ?? null,
+          } : null,
           winner:        this._getWinner(m),
         })),
       }));
